@@ -470,6 +470,61 @@ body {
 }
 .file-block:last-child { border-bottom: 0; }
 
+/* XLSX preview */
+.xlsx-preview { max-width: 980px; padding: 18px 24px; }
+.xlsx-empty {
+  padding: 36px 28px;
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.xlsx-empty strong { color: var(--ink); font-weight: 600; }
+.xlsx-empty ul { padding-left: 22px; }
+.xlsx-banner { margin: 24px 0 0; }
+.xlsx-banner:first-child { margin-top: 4px; }
+.xlsx-banner .src-path { color: var(--muted); font-size: 10px; }
+.xlsx-sheet-wrap {
+  margin-bottom: 24px;
+  overflow-x: auto;
+  border: 1px solid var(--hairline);
+  border-top: 0;
+  background: var(--paper);
+  border-radius: 0 0 3px 3px;
+}
+.xlsx-sheet {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+  width: 100%;
+  background: var(--paper);
+}
+.xlsx-sheet th, .xlsx-sheet td {
+  border: 1px solid var(--hairline);
+  padding: 4px 9px;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.xlsx-sheet th { background: var(--paper-2); font-weight: 600; color: var(--ink); }
+.xlsx-sheet tr.sec-header td {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  border-color: var(--accent);
+}
+.xlsx-sheet tr.sep-row td {
+  border: 0;
+  padding: 3px;
+  background: transparent;
+}
+
 .split-plan { padding: 18px 24px; }
 .split-plan h3 { font-family: var(--serif); font-size: 15px; margin: 0 0 10px; }
 .file-list { font-family: var(--mono); font-size: 12px; }
@@ -830,6 +885,7 @@ kbd {
         <div class="pane-tabs" id="output-tabs">
           <button class="pane-tab active" data-tab="preview">Preview</button>
           <button class="pane-tab" data-tab="raw">Raw MD</button>
+          <button class="pane-tab" data-tab="xlsx">XLSX</button>
           <button class="pane-tab" data-tab="split">Split plan</button>
         </div>
         <div class="pane-spacer"></div>
@@ -895,7 +951,7 @@ const state = {
   dirty: false,
 };
 
-const VERSION = "v0.5.05";
+const VERSION = "v0.5.06";
 const DEFAULT_TEMPLATE = "{i:02}-{.name}.md";
 const MAX_HISTORY = 50;
 const AUTOSAVE_DEBOUNCE = 800;
@@ -1688,9 +1744,126 @@ function renderWithLinks(value, path, ctx) {
 /* ══════════════════════════════════════════════════════════════
    XLSX GENERATION
    ══════════════════════════════════════════════════════════════ */
+/** Convert an object into an ordered list of sheet sections: primitives as a
+ *  Field/Value pair block, then one section per nested object (Field/Value
+ *  again), one per array-of-objects (proper column table), one per primitive
+ *  array. Each section carries a header. This keeps all of one split child's
+ *  data in a single sheet but lays out nested structure legibly. */
+function objectToSections(obj) {
+  const sections = [];
+  const primitives = [];
+  const nestedObjects = [];
+  const tableArrays = [];
+  const listArrays = [];
+
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === null || typeof v !== "object") {
+      primitives.push([k, v]);
+    } else if (Array.isArray(v)) {
+      if (v.length === 0) {
+        primitives.push([k, "(empty)"]);
+      } else if (v.every(x => x !== null && typeof x === "object" && !Array.isArray(x))) {
+        tableArrays.push([k, v]);
+      } else if (v.every(x => x === null || typeof x !== "object")) {
+        primitives.push([k, v.filter(x => x != null).join(", ")]);
+      } else {
+        listArrays.push([k, v]);
+      }
+    } else {
+      nestedObjects.push([k, v]);
+    }
+  }
+
+  if (primitives.length > 0) {
+    sections.push({
+      type: "kv",
+      rows: primitives.map(([k, v]) => [humanize(k), v == null ? "" : v]),
+    });
+  }
+
+  for (const [k, v] of nestedObjects) {
+    sections.push({ type: "header", text: humanize(k) + ":" });
+    const rows = [];
+    for (const [k2, v2] of Object.entries(v)) {
+      let val;
+      if (v2 === null) val = "";
+      else if (typeof v2 !== "object") val = v2;
+      else if (Array.isArray(v2)) {
+        if (v2.every(x => x === null || typeof x !== "object")) {
+          val = v2.filter(x => x != null).join(", ");
+        } else {
+          val = JSON.stringify(v2);
+        }
+      } else {
+        val = JSON.stringify(v2);
+      }
+      rows.push([humanize(k2), val]);
+    }
+    sections.push({ type: "kv", rows });
+  }
+
+  for (const [k, v] of tableArrays) {
+    sections.push({ type: "header", text: humanize(k) + ":" });
+    const keySet = new Set();
+    v.forEach(item => Object.keys(item).forEach(k2 => keySet.add(k2)));
+    const cols = [...keySet];
+    const rows = v.map(item => cols.map(c => {
+      const val = item[c];
+      if (val == null) return "";
+      if (typeof val !== "object") return val;
+      if (Array.isArray(val) && val.every(x => x === null || typeof x !== "object")) {
+        return val.filter(x => x != null).join(", ");
+      }
+      return JSON.stringify(val);
+    }));
+    sections.push({
+      type: "table",
+      columns: cols.map(c => humanize(c)),
+      rows,
+    });
+  }
+
+  for (const [k, v] of listArrays) {
+    sections.push({ type: "header", text: humanize(k) + ":" });
+    const rows = v.map(x => [
+      typeof x === "object" && x !== null ? JSON.stringify(x) : (x == null ? "" : x)
+    ]);
+    sections.push({ type: "list", rows });
+  }
+
+  return sections;
+}
+
+/** Convert a list of sheet sections into a flat AOA for XLSX. */
+function sectionsToAOA(sections) {
+  const rows = [];
+  sections.forEach((section, i) => {
+    if (i > 0 && rows.length > 0) rows.push([]); // blank separator
+    if (section.type === "header") {
+      rows.push([section.text]);
+    } else if (section.type === "kv") {
+      rows.push(["Field", "Value"]);
+      section.rows.forEach(r => rows.push(r));
+    } else if (section.type === "table") {
+      rows.push(section.columns);
+      section.rows.forEach(r => rows.push(r));
+    } else if (section.type === "list") {
+      section.rows.forEach(r => rows.push(r));
+    }
+  });
+  return rows;
+}
+
+function pathDisplay(path) {
+  return path.map(p => typeof p === "number" ? `[${p}]` : (p.match(/^[A-Za-z_][A-Za-z_0-9]*$/) ? "." + p : `[${JSON.stringify(p)}]`)).join("").replace(/^\./, "") || "$";
+}
+
 function findTableSources() {
-  // Walk doc. Find: (a) arrays with a "table" rule, (b) arrays under a split point.
-  const sources = []; // [{ name, rows, columns }]
+  // Returns a list of sheet sources. Sources come in two shapes:
+  //   { name, sections: [...] }        — for split child sheets + Index
+  //   { name, rows: [...], columns }   — for table-rule sheets (legacy)
+  const splitSources = [];
+  const tableSources = [];
   const activeSplits = findActiveSplits();
 
   function walk(val, path) {
@@ -1701,16 +1874,15 @@ function findTableSources() {
       const isSplit = split?.enabled;
 
       if (isSplit) {
-        // Each item becomes its own sheet containing the item's fields as rows
         const parent = path.length === 0 ? state.doc : getAt(state.doc, path.slice(0, -1));
         val.forEach((item, i) => {
           const name = applySlug(resolveTemplate(split.template, item, i, val, parent).replace(/\.md$/i, ""), split.slug).slice(0, 31);
-          // Flatten object into key/value rows
-          const rows = Object.entries(item).map(([k, v]) => ({
-            Field: humanize(k),
-            Value: typeof v === "object" ? JSON.stringify(v) : v,
-          }));
-          sources.push({ name: name || `Sheet ${i+1}`, rows, columns: ["Field", "Value"] });
+          const sections = objectToSections(item);
+          splitSources.push({
+            name: name || `Sheet ${i + 1}`,
+            sections,
+            sourcePath: pathDisplay([...path, i]),
+          });
         });
         return;
       }
@@ -1724,13 +1896,13 @@ function findTableSources() {
             const subpath = col.replace(/^\./, "").split(".").filter(Boolean);
             const v = getAt(item, subpath);
             const join = rule.joins?.[col] ?? ", ";
-            row[headers[idx]] = typeof v === "object" && v !== null ? mdInline(v, join) : v;
+            row[headers[idx]] = typeof v === "object" && v !== null ? mdInline(v, join, rule) : v;
           });
           return row;
         });
         const sheetName = (path[path.length - 1] ? humanize(String(path[path.length - 1])) : "Data").slice(0, 31);
-        sources.push({ name: sheetName, rows, columns: headers });
-        return; // don't recurse into a table
+        tableSources.push({ name: sheetName, rows, columns: headers, sourcePath: pathDisplay(path) });
+        return;
       }
     }
     if (val && typeof val === "object") {
@@ -1740,7 +1912,35 @@ function findTableSources() {
   }
   walk(state.doc, []);
 
-  // Deduplicate sheet names
+  const sources = [];
+
+  // Index sheet — top-level summary plus the sheet-map, when splits are active
+  if (splitSources.length > 0 && state.doc && typeof state.doc === "object" && !Array.isArray(state.doc)) {
+    const sections = [];
+    const primRows = [];
+    for (const [k, v] of Object.entries(state.doc)) {
+      if (v === null || typeof v !== "object") {
+        primRows.push([humanize(k), v == null ? "" : v]);
+      } else if (Array.isArray(v)) {
+        primRows.push([humanize(k), `array (${v.length} items)`]);
+      } else {
+        primRows.push([humanize(k), `object (${Object.keys(v).length} keys)`]);
+      }
+    }
+    if (primRows.length > 0) sections.push({ type: "kv", rows: primRows });
+
+    sections.push({ type: "header", text: "Split files:" });
+    sections.push({
+      type: "table",
+      columns: ["Sheet", "Source"],
+      rows: splitSources.map(s => [s.name, s.sourcePath]),
+    });
+    sources.push({ name: "Index", sections });
+  }
+
+  sources.push(...tableSources, ...splitSources);
+
+  // Deduplicate sheet names (Excel would reject or auto-rename otherwise)
   const names = new Map();
   for (const s of sources) {
     const c = (names.get(s.name) || 0) + 1;
@@ -1769,7 +1969,10 @@ function generateXLSXBlob() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Document");
   } else {
     for (const s of sources) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.rows), s.name);
+      const sheet = s.sections
+        ? XLSX.utils.aoa_to_sheet(sectionsToAOA(s.sections))
+        : XLSX.utils.json_to_sheet(s.rows);
+      XLSX.utils.book_append_sheet(wb, sheet, s.name);
     }
   }
   return XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -2117,9 +2320,148 @@ function mdToHtml(md) {
   return html;
 }
 
+function countSheetSize(source) {
+  if (source.sections) {
+    const aoa = sectionsToAOA(source.sections);
+    const rows = aoa.length;
+    const cols = aoa.reduce((m, r) => Math.max(m, r.length), 0);
+    return { rows, cols };
+  }
+  return { rows: (source.rows?.length || 0) + 1, cols: source.columns?.length || 0 };
+}
+
+function renderSheetHtml(source) {
+  const table = document.createElement("table");
+  table.className = "xlsx-sheet";
+
+  if (source.sections) {
+    source.sections.forEach((section, idx) => {
+      if (idx > 0) {
+        const tr = document.createElement("tr");
+        tr.className = "sep-row";
+        const td = document.createElement("td");
+        td.colSpan = 10; td.innerHTML = "&nbsp;";
+        tr.appendChild(td); table.appendChild(tr);
+      }
+      if (section.type === "header") {
+        const tr = document.createElement("tr");
+        tr.className = "sec-header";
+        const td = document.createElement("td");
+        td.colSpan = 10; td.textContent = section.text;
+        tr.appendChild(td); table.appendChild(tr);
+      } else if (section.type === "kv") {
+        const trh = document.createElement("tr");
+        trh.className = "kv-header";
+        for (const h of ["Field", "Value"]) {
+          const th = document.createElement("th"); th.textContent = h; trh.appendChild(th);
+        }
+        table.appendChild(trh);
+        for (const row of section.rows) {
+          const tr = document.createElement("tr");
+          for (const cell of row) {
+            const td = document.createElement("td");
+            td.textContent = cell == null ? "" : String(cell);
+            tr.appendChild(td);
+          }
+          table.appendChild(tr);
+        }
+      } else if (section.type === "table") {
+        const trh = document.createElement("tr");
+        trh.className = "col-header";
+        for (const h of section.columns) {
+          const th = document.createElement("th"); th.textContent = h; trh.appendChild(th);
+        }
+        table.appendChild(trh);
+        for (const row of section.rows) {
+          const tr = document.createElement("tr");
+          for (const cell of row) {
+            const td = document.createElement("td");
+            td.textContent = cell == null ? "" : String(cell);
+            tr.appendChild(td);
+          }
+          table.appendChild(tr);
+        }
+      } else if (section.type === "list") {
+        for (const row of section.rows) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.textContent = row[0] == null ? "" : String(row[0]);
+          tr.appendChild(td); table.appendChild(tr);
+        }
+      }
+    });
+  } else if (source.rows && source.columns) {
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    for (const c of source.columns) {
+      const th = document.createElement("th"); th.textContent = c; trh.appendChild(th);
+    }
+    thead.appendChild(trh);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    for (const row of source.rows) {
+      const tr = document.createElement("tr");
+      for (const c of source.columns) {
+        const td = document.createElement("td");
+        const v = row[c];
+        td.textContent = v == null ? "" : String(v);
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+  }
+
+  return table;
+}
+
+function renderXLSXPreview(body) {
+  const sources = findTableSources();
+
+  if (sources.length === 0) {
+    const hint = document.createElement("div");
+    hint.className = "xlsx-empty";
+    hint.innerHTML = `
+      <p>No XLSX-worthy structure detected.</p>
+      <p>To produce sheets, either:</p>
+      <ul>
+        <li>Select an array of objects and set its role to <strong>Table</strong> — becomes one sheet.</li>
+        <li>Select an array and enable <strong>Split</strong> — each child becomes its own sheet.</li>
+      </ul>
+      <p>Without either, Excel export falls back to a single flat path/value sheet.</p>
+    `;
+    body.appendChild(hint);
+    return;
+  }
+
+  const wrap = document.createElement("div");
+  wrap.className = "xlsx-preview";
+
+  sources.forEach((source, i) => {
+    const banner = document.createElement("div");
+    banner.className = "file-banner xlsx-banner";
+    const size = countSheetSize(source);
+    const meta = source.sourcePath ? ` · <span class="src-path">${escapeHtmlAttr(source.sourcePath)}</span>` : "";
+    banner.innerHTML = `<span class="file-ix">${String(i + 1).padStart(2, "0")}</span><span class="file-name">${escapeHtmlAttr(source.name)}</span><span class="file-size">${size.rows}×${size.cols}${meta}</span>`;
+    wrap.appendChild(banner);
+
+    const sheetWrap = document.createElement("div");
+    sheetWrap.className = "xlsx-sheet-wrap";
+    sheetWrap.appendChild(renderSheetHtml(source));
+    wrap.appendChild(sheetWrap);
+  });
+
+  body.appendChild(wrap);
+}
+
 function renderOutput() {
   const body = document.getElementById("output-body");
   body.innerHTML = "";
+
+  if (state.outputTab === "xlsx") {
+    renderXLSXPreview(body);
+    return;
+  }
 
   if (state.outputTab === "split") {
     const files = generateFiles();
@@ -2150,7 +2492,8 @@ function renderOutput() {
         const item = document.createElement("div"); item.className = "file-list-item";
         const n = document.createElement("span"); n.textContent = s.name;
         const c = document.createElement("span"); c.className = "size";
-        c.textContent = `${s.rows.length} rows · ${s.columns.length} cols`;
+        const size = countSheetSize(s);
+        c.textContent = `${size.rows} rows · ${size.cols} cols`;
         item.appendChild(n); item.appendChild(c);
         wl.appendChild(item);
       });
