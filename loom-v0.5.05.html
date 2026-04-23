@@ -584,6 +584,14 @@ body {
 }
 .insp-input:focus, .insp-select:focus { outline: none; border-color: var(--accent); background: var(--paper); }
 
+.insp-input::placeholder,
+.insp-textarea::placeholder,
+textarea.insp-input::placeholder {
+  color: var(--hairline-strong);
+  opacity: 0.55;
+  font-style: italic;
+}
+
 textarea.insp-input, .insp-textarea {
   resize: vertical;
   min-height: 60px;
@@ -721,6 +729,8 @@ textarea.insp-input, .insp-textarea {
   margin: 0 0 14px;
   font-weight: 500;
 }
+.modal a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.modal a:hover { color: var(--ink); }
 .version-tag {
   font-family: var(--mono);
   font-size: 11px;
@@ -837,6 +847,7 @@ kbd {
         <div class="pane-tabs" id="insp-tabs">
           <button class="pane-tab active" data-tab="rule">Rule</button>
           <button class="pane-tab" data-tab="split">Split</button>
+          <button class="pane-tab" data-tab="document">Document</button>
         </div>
         <div class="pane-spacer"></div>
       </div>
@@ -872,6 +883,7 @@ const state = {
   rules: {},   // patternPath -> rule object
   splits: {},  // patternPath -> split object
   annotations: {}, // patternPath -> { before, after }
+  docFrontMatter: "", // document-wide front matter (applied to main file / index.md)
   selection: null, // null = nothing selected; [] = root selected; [...] = deeper path
   expanded: new Set(["[]"]), // JSON-encoded paths that are expanded
   outputTab: "preview",
@@ -883,7 +895,7 @@ const state = {
   dirty: false,
 };
 
-const VERSION = "v0.5.04";
+const VERSION = "v0.5.05";
 const DEFAULT_TEMPLATE = "{i:02}-{.name}.md";
 const MAX_HISTORY = 50;
 const AUTOSAVE_DEBOUNCE = 800;
@@ -1018,7 +1030,7 @@ function parseScalar(text, originalType) {
    HISTORY
    ══════════════════════════════════════════════════════════════ */
 function snapshot() {
-  return { doc: state.doc, rules: { ...state.rules }, splits: { ...state.splits }, annotations: { ...state.annotations } };
+  return { doc: state.doc, rules: { ...state.rules }, splits: { ...state.splits }, annotations: { ...state.annotations }, docFrontMatter: state.docFrontMatter };
 }
 
 function pushHistory() {
@@ -1035,6 +1047,7 @@ function undo() {
   state.history.future.push(current);
   state.doc = prev.doc; state.rules = prev.rules; state.splits = prev.splits;
   state.annotations = prev.annotations || {};
+  state.docFrontMatter = prev.docFrontMatter || "";
   updateAll();
 }
 
@@ -1045,6 +1058,7 @@ function redo() {
   state.history.past.push(current);
   state.doc = next.doc; state.rules = next.rules; state.splits = next.splits;
   state.annotations = next.annotations || {};
+  state.docFrontMatter = next.docFrontMatter || "";
   updateAll();
 }
 
@@ -1562,7 +1576,12 @@ function generateFiles() {
 
   if (activeSplits.length === 0) {
     const md = renderMD(state.doc, [], { level: 1 });
-    files.push({ name: "document.md", content: md.trim() + "\n" });
+    let content = md.trim() + "\n";
+    if (state.docFrontMatter && state.docFrontMatter.trim()) {
+      const fm = resolveAnnotationTokens(state.docFrontMatter, state.doc, null);
+      content = fm + (fm.endsWith("\n") ? "" : "\n") + content;
+    }
+    files.push({ name: "document.md", content });
     return files;
   }
 
@@ -1616,7 +1635,12 @@ function generateFiles() {
 
   // Render stub; intercept __link arrays to render bullets
   const mainMd = renderWithLinks(stubDoc, [], { level: 1 });
-  files.unshift({ name: "index.md", content: mainMd.trim() + "\n" });
+  let indexContent = mainMd.trim() + "\n";
+  if (state.docFrontMatter && state.docFrontMatter.trim()) {
+    const fm = resolveAnnotationTokens(state.docFrontMatter, state.doc, null);
+    indexContent = fm + (fm.endsWith("\n") ? "" : "\n") + indexContent;
+  }
+  files.unshift({ name: "index.md", content: indexContent });
 
   return files;
 }
@@ -2179,6 +2203,13 @@ function renderOutput() {
 function renderInspector() {
   const body = document.getElementById("insp-body");
   body.innerHTML = "";
+
+  // Document tab is always available, regardless of tree selection
+  if (state.inspectorTab === "document") {
+    renderDocumentInspector(body);
+    return;
+  }
+
   const path = state.selection;
   if (path === null) {
     body.innerHTML = `<div class="insp-placeholder">Select a node in the tree to configure how it renders or splits.</div>`;
@@ -2201,7 +2232,67 @@ function renderInspector() {
   body.appendChild(header);
 
   if (state.inspectorTab === "rule") renderRuleInspector(body, path, value);
-  else renderSplitInspector(body, path, value);
+  else if (state.inspectorTab === "split") renderSplitInspector(body, path, value);
+}
+
+function renderDocumentInspector(body) {
+  const section = document.createElement("div");
+  section.className = "insp-section";
+  section.innerHTML = `
+    <label>Document</label>
+    <div class="insp-path">${escapeHtmlAttr(state.docName ? state.docName + ".json" : "(untitled)")}</div>
+    <div class="insp-shape">${describeShape(state.doc)}</div>
+  `;
+  body.appendChild(section);
+
+  // Document front matter
+  const fmSection = document.createElement("div");
+  fmSection.className = "insp-section";
+  fmSection.innerHTML = `<h3>Document front matter</h3>`;
+  const row = document.createElement("div"); row.className = "insp-row";
+  const ta = document.createElement("textarea");
+  ta.className = "insp-input insp-textarea";
+  ta.rows = 8;
+  ta.spellcheck = false;
+  ta.placeholder = `---\ntitle: {$.title}\ndate: {$.timestamp}\nmode: {$.mode}\n---\n`;
+  ta.value = state.docFrontMatter || "";
+  ta.addEventListener("input", debounced(() => {
+    pushHistory();
+    state.docFrontMatter = ta.value;
+    afterChange();
+  }, 400));
+  row.appendChild(ta);
+  fmSection.appendChild(row);
+  fmSection.insertAdjacentHTML("beforeend", `
+    <div class="insp-help">Inserted at the top of the main output file. When splits are active, this goes into <code>index.md</code>. Per-split child files use the "Front matter" field in the Split tab instead.</div>
+    <div class="insp-tokens" style="margin-top:8px;line-height:1.7;">
+      Tokens (resolved against document root):<br>
+      <code>{.field}</code> or <code>{$.field}</code> field from root<br>
+      <code>{.nested.field}</code> nested lookup
+    </div>
+  `);
+  body.appendChild(fmSection);
+
+  // Quick stats
+  const stats = document.createElement("div");
+  stats.className = "insp-section";
+  stats.innerHTML = `<h3>Summary</h3>`;
+  const rules = Object.keys(state.rules).length;
+  const splits = Object.values(state.splits).filter(s => s.enabled).length;
+  const anns = Object.keys(state.annotations).length;
+  let nodes = 0;
+  (function count(v) { nodes++; if (v && typeof v === "object") { if (Array.isArray(v)) v.forEach(count); else Object.values(v).forEach(count); }})(state.doc);
+  const kv = document.createElement("div");
+  kv.className = "insp-tokens";
+  kv.style.lineHeight = "1.8";
+  kv.innerHTML = `
+    Nodes: <code>${nodes}</code><br>
+    Rules defined: <code>${rules}</code><br>
+    Splits active: <code>${splits}</code><br>
+    Annotations: <code>${anns}</code>
+  `;
+  stats.appendChild(kv);
+  body.appendChild(stats);
 }
 
 function describeShape(v) {
@@ -2712,6 +2803,7 @@ function doAutosave() {
       rules: state.rules,
       splits: state.splits,
       annotations: state.annotations,
+      docFrontMatter: state.docFrontMatter,
       savedAt: Date.now(),
     };
     localStorage.setItem(LS_KEY, JSON.stringify(payload));
@@ -2754,6 +2846,7 @@ function applyPreset(name) {
   state.rules = { ...(presets[name].rules || {}) };
   state.splits = { ...(presets[name].splits || {}) };
   state.annotations = { ...(presets[name].annotations || {}) };
+  state.docFrontMatter = presets[name].docFrontMatter || "";
   state.preset = name;
   afterChange();
   flashStatus(`Applied preset: ${name}`);
@@ -2768,6 +2861,7 @@ function saveCurrentAsPreset() {
     rules: state.rules,
     splits: state.splits,
     annotations: state.annotations,
+    docFrontMatter: state.docFrontMatter,
     savedAt: Date.now(),
   };
   savePresets(presets);
@@ -2815,6 +2909,7 @@ function importPresetFromFile() {
             rules: body.rules || {},
             splits: body.splits || {},
             annotations: body.annotations || {},
+            docFrontMatter: body.docFrontMatter || "",
             savedAt: Date.now(),
           };
           imported++;
@@ -2918,7 +3013,13 @@ function updateDocStats() {
 function afterChange() {
   renderTree();
   renderOutput();
-  renderInspector();
+  // Skip inspector re-render while the user is typing in it — otherwise
+  // debounced autosave would destroy the textarea/input they're editing.
+  const active = document.activeElement;
+  const inInspector = active && document.getElementById("pane-inspector")?.contains(active);
+  const isTextInput = active && (active.tagName === "TEXTAREA" ||
+    (active.tagName === "INPUT" && (active.type === "text" || active.type === "number")));
+  if (!(inInspector && isTextInput)) renderInspector();
   updateDocStats();
   updateDocName();
   updateUndoButtons();
@@ -3000,6 +3101,7 @@ function wireUp() {
     state.rules = {};
     state.splits = {};
     state.annotations = {};
+    state.docFrontMatter = "";
     state.selection = null;
     state.expanded = new Set([pathKey([])]);
     afterChange();
@@ -3078,11 +3180,15 @@ function showHelp() {
       <p><strong>Tree</strong>: click a node to select it; click the type pill to change its type; click a key or value to edit. Use + key / + item to add.</p>
       <p><strong>Rule</strong>: select a node, then in the right pane choose how to render it. Rules apply to all siblings of the same shape (so setting a rule on <code>projects[0]</code> applies to every project).</p>
       <p><strong>Split</strong>: on an array node, enable split to produce one output file per item. Filename templates accept <code>{i}</code>, <code>{i:02}</code>, <code>{.field}</code>, <code>{parent.x}</code>. Optional per-file front matter is injected at the top of each split file.</p>
-      <p><strong>Annotations</strong>: free-form Markdown inserted before or after any node — useful for YAML front matter (at root) or section dividers. Supports the tokens <code>{.field}</code>, <code>{parent.field}</code>, <code>{$.field}</code>.</p>
+      <p><strong>Annotations</strong>: free-form Markdown inserted before or after any node — useful for section dividers or intro/outro text. Supports the tokens <code>{.field}</code>, <code>{parent.field}</code>, <code>{$.field}</code>.</p>
+      <p><strong>Document tab</strong>: document-wide front matter, applied to the single output file (or to <code>index.md</code> when splits are active). Use it for YAML headers consumed by Pandoc, Jekyll, Hugo, etc.</p>
       <p><strong>Tree markers</strong>: small chips next to each node show its active role (<code>table</code>, <code>list</code>, <code>skip</code>, <code>heading</code>), whether it's a <code>split</code> point, and whether it has an annotation (<code>※</code>).</p>
       <p><strong>Export</strong>: MD downloads a <code>.md</code> file (or <code>.zip</code> if splits are active). XLSX produces one sheet per table rule or split point.</p>
       <p><strong>Autosave</strong>: your draft is stored in the browser and restored next time.</p>
       <p style="font-size:11px;color:var(--muted);">Shortcuts: <kbd>Ctrl/⌘+Z</kbd> undo · <kbd>Ctrl/⌘+Shift+Z</kbd> redo · <kbd>Ctrl/⌘+S</kbd> save JSON · <kbd>Ctrl/⌘+O</kbd> open</p>
+      <p style="font-size:11px;color:var(--muted);margin-top:14px;border-top:1px solid var(--hairline);padding-top:10px;">
+        Source, issues, and the latest release: <a href="https://github.com/jmkorhonen/json_loom" target="_blank" rel="noopener">github.com/jmkorhonen/json_loom</a>
+      </p>
       <div class="modal-actions">
         <button class="insp-btn primary" id="help-close">Got it</button>
       </div>
@@ -3108,6 +3214,7 @@ function showRestoreBanner(draft) {
     state.rules = draft.rules || {};
     state.splits = draft.splits || {};
     state.annotations = draft.annotations || {};
+    state.docFrontMatter = draft.docFrontMatter || "";
     state.expanded = new Set([pathKey([])]);
     state.history = { past: [], future: [] };
     banner.remove();
