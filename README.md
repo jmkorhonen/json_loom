@@ -4,9 +4,9 @@ A single-file, browser-based tool for viewing, editing, and converting JSON
 into Markdown and Excel.
 
 **Run online:** <https://jmkorhonen.github.io/json_loom/loom>
-**Run locally:** download the latest `loom-vX.Y.ZZ.html`, double-click to open
-in any modern browser (Firefox, Chrome, Safari, Edge). No install, no server,
-no build step. Your data never leaves your machine.
+
+**Run locally:** Head to the [repository](https://github.com/jmkorhonen/json_loom), if you aren't there yet, download the latest `loom-vX.Y.ZZ.html`, double-click to open
+in any modern browser (Firefox, Chrome, Safari, Edge). No install, no server, no build step. Your data never leaves your machine.
 
 > Loom is experimental. Don't trust it with your only copy of anything. If it
 > eats your data, runs away with your dog, or causes the very fabric of the
@@ -43,6 +43,7 @@ no build step. Your data never leaves your machine.
   - [Survey results as a compact report](#survey-results-as-a-compact-report)
   - [Splitting interviews into per-person Markdown files](#splitting-interviews-into-per-person-markdown-files)
   - [Finnish-locale numbers for a policy brief](#finnish-locale-numbers-for-a-policy-brief)
+  - [Survey results as a per-persona Excel workbook](#survey-results-as-a-per-persona-excel-workbook)
 - [Limitations and quirks](#limitations-and-quirks)
 - [Release notes](#release-notes)
 
@@ -358,9 +359,18 @@ a `presets` object mapping names to configurations).
   active, a `.zip` with all the Markdown files.
 - **Export XLSX** — produces an Excel workbook. Sheets come from:
   - Arrays/objects with the Table role → one sheet each.
-  - Arrays with Split enabled → one sheet per child (Excel's 31-character
-    limit is respected).
+  - Arrays with Split enabled → one sheet per child, plus an `Index`
+    sheet at the front showing root metadata and a sheet-map.
   - If neither, a flat key/path sheet as a fallback.
+
+  Within a split-child sheet, nested structure is preserved legibly: the
+  item's primitive fields go into a top Field/Value block, each nested
+  object becomes its own Field/Value block under a header row, and each
+  array-of-objects becomes a proper column-based table with its own header
+  row. No more JSON blobs pasted into single cells.
+
+  The **XLSX** tab in the Output pane shows a live preview of every sheet
+  as an HTML table before you download anything.
 
 ---
 
@@ -460,6 +470,28 @@ convention (`0,22`).
 (Rounding to a fixed number of decimal places isn't built in yet — open an
 issue if you need it.)
 
+### Survey results as a per-persona Excel workbook
+
+Same survey JSON as the first example. This time you want an XLSX where
+each persona is its own sheet and the nested `per_question` array renders
+as a proper filterable table — not a JSON blob.
+
+1. Load the file.
+2. Click into any persona object inside `runs[0]`.
+3. Open the **Split** tab. Tick *Split this array*. Template:
+   `{i:02}-{.persona}.md` (the `.md` extension is stripped for XLSX
+   sheet names).
+4. Open the **XLSX** tab in the Output pane. You should see:
+   - An `Index` sheet with `Timestamp`, `Mode`, …, and a Sheet/Source map.
+   - One sheet per persona, with their scalar fields in a Field/Value
+     block, the `Responses` object as a labelled Field/Value block below,
+     and `Per question` as a 6-column × 9-row table with real headers
+     (`Question id | Predicted | Ground truth | Exact match |
+     Adjacent match | Distance`).
+5. Click **Export XLSX**. The downloaded workbook is identical to the
+   preview. Booleans are native Excel TRUE/FALSE; numbers are numeric, not
+   strings.
+
 ---
 
 ## Limitations and quirks
@@ -484,6 +516,21 @@ issue if you need it.)
 ---
 
 ## Release notes
+
+### v0.5.06
+
+- **XLSX preview tab.** New "XLSX" tab in the Output pane renders every sheet
+  as an HTML table, so you can see exactly what the Excel export will look
+  like before downloading.
+- **Better nested objects in split XLSX.** Fields whose value is an object
+  or an array of objects are no longer JSON-stringified into a single cell.
+  Each gets its own labelled section in the same sheet: nested objects
+  become sub–Field/Value blocks, arrays of objects become proper tables
+  with their own columns.
+- **Index sheet for split XLSX.** When splits are active, an "Index" sheet
+  is placed first, showing top-level document fields plus a Sheet/Source
+  map so you can see which sheet corresponds to which path in the original
+  JSON.
 
 ### v0.5.05
 
