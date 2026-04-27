@@ -4,14 +4,13 @@ A single-file, browser-based tool for viewing, editing, and converting JSON
 into Markdown and Excel.
 
 **Run online:** <https://jmkorhonen.github.io/json_loom/loom>
-**Run locally:** download the latest `loom-vX.Y.ZZ.html`, double-click to open
-in any modern browser (Firefox, Chrome, Safari, Edge). No install, no server,
-no build step. Your data never leaves your machine.
 
-> Loom is one researcher's side project to produce a tool for personal use. The data formats and pipelines
-> have been stable since 0.5, but you should still keep backups of
-> anything important. If it eats your data, runs away with your dog, or
-> causes the very fabric of the universe to unravel, *that's on you.*
+**Run locally:** Head to the [repository](https://github.com/jmkorhonen/json_loom), if you aren't there yet, download the latest `loom-vX.Y.ZZ.html`, double-click to open
+in any modern browser (Firefox, Chrome, Safari, Edge). No install, no server, no build step. Your data never leaves your machine.
+
+> Loom is experimental. Don't trust it with your only copy of anything. If it
+> eats your data, runs away with your dog, or causes the very fabric of the
+> universe to unravel, that's on you.
 
 ---
 
@@ -77,87 +76,43 @@ the tab won't lose your work.
 
 ## The interface at a glance
 
-A tab bar at the top shows every open document. Click a tab to switch,
-click the **+** at the end to open a new empty document, click the **×**
-on a tab to close it. Each tab has fully independent state — opening
-two surveys side-by-side, or experimenting with rules in one tab while
-keeping a clean copy in another, just works.
+Three resizable panes, each collapsible via the chevron in its header.
 
-Below the tab bar are four resizable panes, each collapsible via the
-chevron in its header.
-
-- **Left — Structure.** A tree view of the JSON. Click anywhere on a row to
-  select it. Small chips next to each node show its active role, split
-  status, and any attached annotation. The type pill is clickable for
-  quick type changes.
-- **Second — Editor.** Always shows the currently-selected node. A
-  breadcrumb at the top shows the path and lets you navigate up. Each
-  child appears as a row with a key input, type pill, value input (or
-  summary + Open → for containers), and delete button. Clicking a
-  container row navigates into it; clicking Open → does the same.
-  All value and structure edits happen here.
-- **Middle — Output.** Four tabs: **Preview** (rendered Markdown), **Raw
-  MD** (the actual Markdown text), **XLSX** (rendered sheet preview),
-  **Split plan** (list of files that would be produced).
-- **Right — Inspector.** Three tabs: **Rule** (configure the selected
-  node), **Split** (only meaningful on arrays), **Document** (document-
-  wide settings like YAML front matter).
+- **Left — Structure.** A tree view of the JSON. Click a node to select it.
+  Click its key or value to rename in place. Click the small type pill
+  (`{}`, `[]`, `""`, `#`, `✓`, `∅`) to change its type.
+- **Middle — Output.** Three tabs: **Preview** (rendered Markdown), **Raw MD**
+  (the actual Markdown text), **Split plan** (list of files that would be
+  produced).
+- **Right — Inspector.** Three tabs: **Rule** (configure the selected node),
+  **Split** (only meaningful on arrays), **Document** (document-wide settings
+  like YAML front matter).
 
 Above the panes is a toolbar with New / Open / Save / Export / Undo / Redo
-plus the preset selector and a filename chip that shows an accent dot
-when there are unsaved edits. Below is a status bar showing node count,
-rule count, annotation count, and the last autosave time.
+plus the preset selector. Below is a status bar showing node count, rule
+count, annotation count, and the last autosave time.
 
 ---
 
 ## Editing JSON
 
-All editing happens in the **Editor pane**. Select a node in Structure,
-and the Editor shows it in full:
+Everything is WYSIWYG-ish:
 
-- **Rename a key** — click the key input, type, Tab or click away to commit.
-  Tip: clicking a leaf node in Structure (like `title` or `n_questions`)
-  selects its parent in the Editor and auto-focuses that leaf's key
-  input — one click and you can start typing the new name.
-- **Edit a scalar value** — the value input accepts new text or numbers;
-  booleans show true/false toggle buttons; null shows a "change type to
-  assign" hint.
-- **Edit a long string** — when the selected node *is* a string, Editor
-  gives you a full multi-line textarea instead of a single-line input.
-- **Reorder children** — grab the `⋮⋮` handle on the left of any row
-  and drag it up or down to reorder within the same parent. Works for
-  both arrays and objects; key order in objects is preserved through save.
-- **Change a node's type** — click the type pill on its row. Container
-  values are preserved where sensible: `{}` → `[]` turns object values
-  into an array, `"5"` → `#` parses to `5`.
-- **Add a key or item** — use the sticky `+ key` / `+ item` button at the
-  bottom of the Editor, or use the corresponding button in any
-  expanded container in Structure. The newly-added row's input gets
-  auto-focused so you can type the name immediately.
-- **Navigate into a container** — click anywhere on a container row, or
-  the Open → button.
-- **Delete** — the × button on each row, or the × Delete button in the
-  breadcrumb for the currently-selected node. Non-empty containers
-  prompt for confirmation. You can always undo.
+- **Rename a key** — click it and type. Press Enter to confirm, Esc to cancel.
+- **Edit a scalar value** — click the value and type. Strings, numbers, and
+  booleans are preserved by inferred type; empty string → `""`, non-numeric
+  text in a number field → `0`, etc.
+- **Change a node's type** — click the type pill. Container values are
+  preserved where sensible: `{}` → `[]` turns object values into an array,
+  `"5"` → `#` parses to `5`.
+- **Add a key or item** — use the `+ key` / `+ item` button at the bottom of
+  each expanded container.
+- **Delete** — hover a row, click the `×` button. Non-empty containers prompt
+  for confirmation. You can always undo.
 
-The Structure pane is navigation-only — clicking a row just selects it.
-If you prefer, you can collapse Structure entirely and navigate purely
-via the Editor's breadcrumb.
-
-A dropped `.json` file onto the window replaces the current document
-(after confirming if you have unsaved edits). The loaded filename is
-shown next to the logo; an accent dot appears when there are unsaved
-changes.
-
-### A note on types
-
-JSON allows mixed types in both arrays and objects — you can have
-`[1, "two", {three: 3}, null, true]` and that's perfectly valid. Loom
-won't stop you from adding values of different types under the same
-parent. If you change a node's type, Loom will warn you when the change
-is destructive — for example, turning a non-empty object into an array
-discards its keys (only the values become items), and turning any
-container into a scalar deletes its contents. You can always undo.
+A dropped `.json` file onto the window replaces the current document. The
+loaded filename is shown next to the logo and becomes the default for
+`Save JSON` and exports.
 
 ---
 
@@ -433,24 +388,12 @@ Makes it easy to spot something you've accidentally set to *skip*.
 
 ## Keyboard shortcuts
 
-Document-wide:
-
 - <kbd>Ctrl/⌘+Z</kbd> — undo.
 - <kbd>Ctrl/⌘+Shift+Z</kbd> — redo.
 - <kbd>Ctrl/⌘+S</kbd> — save JSON.
 - <kbd>Ctrl/⌘+O</kbd> — open a JSON file.
 - <kbd>Enter</kbd> in an editable key/value — commit the edit.
 - <kbd>Esc</kbd> in an editable key/value — cancel.
-
-In the Structure pane (after clicking a node to give the tree focus):
-
-- <kbd>↑</kbd>/<kbd>↓</kbd> — move between visible rows.
-- <kbd>←</kbd> — collapse the current node, or move to parent if already collapsed.
-- <kbd>→</kbd> — expand the current node, or move to first child if already expanded.
-- <kbd>Space</kbd> — toggle expand/collapse.
-- <kbd>Home</kbd>/<kbd>End</kbd> — jump to first/last visible row.
-- <kbd>Enter</kbd> — move focus to the matching input in the Editor pane.
-- <kbd>Esc</kbd> in the search box — clear the filter.
 
 ---
 
@@ -517,17 +460,15 @@ Given `interviews.json` with an `interviews` array, each item an object with
 ### Finnish-locale numbers for a policy brief
 
 Your data has numbers like `0.2222222222222222` and you want Finnish
-convention rounded to two decimals (`0,22`).
+convention (`0,22`).
 
 1. Select the array containing the numbers. In the Rule tab's Markdown
-   Styling section, set **Decimal mark** to `,` and **Decimal places**
-   to `2`.
+   Styling section, set **Decimal mark** to `,`.
 2. The rule propagates to nested content; children inherit unless they
-   override. All numbers now show as `0,22` rather than `0.2222222222`.
+   override. Decimals everywhere now use a comma.
 
-If you have ISO 8601 timestamps (`2026-03-05T12:40:08.914941`) anywhere
-in the document, the Inspector also shows a **Date format** dropdown
-with presets like `Mar 5, 2026` or `March 5, 2026`.
+(Rounding to a fixed number of decimal places isn't built in yet — open an
+issue if you need it.)
 
 ### Survey results as a per-persona Excel workbook
 
@@ -575,183 +516,6 @@ as a proper filterable table — not a JSON blob.
 ---
 
 ## Release notes
-
-### v1.0
-
-First non-experimental release. The data formats, rules engine, and
-output pipelines have been stable for several iterations and the major
-feature gaps have been filled. From here, breaking changes will be
-called out explicitly in release notes.
-
-**New in 1.0: Multi-document tabs.**
-
-- A tab bar above the panes shows every open document. Each tab has its
-  own independent state — doc, rules, splits, annotations, document
-  front matter, selection, expanded/collapsed nodes, search query,
-  output-pane tab, and undo/redo history.
-- Click a tab to switch to it. Click the **+** at the end to open a new
-  empty tab. Click the **×** on a tab to close it (you'll be asked to
-  confirm if it has unsaved edits).
-- Closing the last remaining tab replaces it with a fresh empty one
-  rather than leaving the workspace blank.
-- Tabs show the doc name in the bar, with an accent dot and accent
-  filename when there are unsaved edits — the same dirty-state
-  convention as the toolbar filename chip.
-- **File open behaviour:** opening a JSON file (via the Open button or
-  drag-and-drop) opens it in a new tab if the current tab has any work
-  in it; if the current tab is fresh and empty, the file replaces it
-  there. No more "Discard current document?" prompt — your existing
-  work is preserved automatically.
-- **Autosave** persists every open tab. Reopening Loom restores the
-  whole tab set, with the previously-active tab focused.
-- Old single-document drafts (saved by 0.5.x) restore as a single tab.
-
-### v0.5.13
-
-- **Number rounding.** New rule field "Decimal places" sits next to
-  Decimal mark in the Inspector. Options: no rounding (default), 0, 1,
-  2, 3, 4, or 6 decimals. Applied via `n.toFixed(d)` before the decimal-
-  mark conversion, so `0.2222222222222222` with `decimals: 2` and Finnish
-  locale becomes `0,22`. Cascades through inheritance like other rule
-  fields. Only shown for subtrees that contain numbers.
-- **Date formatting for ISO 8601 strings.** New rule field "Date format"
-  appears for subtrees containing strings that look like dates
-  (e.g. `2026-03-05T12:40:08.914941`). Options: raw (default), ISO date,
-  short (`Mar 5, 2026`), medium (`March 5, 2026`), time only, or date +
-  time. Uses `Intl.DateTimeFormat` so output respects the user's browser
-  locale. Non-matching strings are left untouched.
-- **XLSX column auto-fit.** Each sheet's column widths are now sized to
-  match the longest cell content in that column (capped at ~60 chars
-  to avoid runaway widths from a single very long value). The Index
-  sheet, the field/value blocks, and per-question tables now all open
-  in Excel without needing to manually drag column borders.
-
-  *Note: bold headers and frozen first row would require a paid
-  SheetJS edition; column widths and native cell types (numbers,
-  booleans, dates) are everything the open-source library exposes.*
-
-### v0.5.12
-
-- **Search/filter in the Structure pane.** A search box at the top of
-  the tree filters nodes by key name or value content (case-insensitive).
-  Matches and all their ancestors stay visible; everything else is
-  hidden. Matches are auto-expanded so they're reachable, and matched
-  substrings are highlighted with a subtle yellow background. A counter
-  shows the number of matches; the × button or <kbd>Esc</kbd> clears the
-  filter.
-- **Keyboard navigation in the tree.** Once a tree row is selected,
-  arrow keys navigate the tree:
-  <kbd>↑</kbd>/<kbd>↓</kbd> move between visible rows,
-  <kbd>←</kbd> collapses (or moves to parent if already collapsed),
-  <kbd>→</kbd> expands (or moves to the first child if already expanded),
-  <kbd>Space</kbd> toggles, <kbd>Home</kbd>/<kbd>End</kbd> jump to first/
-  last visible row, <kbd>Enter</kbd> moves focus to the corresponding
-  input in the Editor pane so you can start typing. Search-and-arrow-down
-  combo (type, then <kbd>↓</kbd>) is the fast workflow for jumping to
-  a specific node in a big document.
-- **Right-click → Copy path / Copy value.** Context menu on any tree
-  row offers three options:
-  - **Copy path** — friendly dot/bracket notation (`$.runs[0][0].persona`).
-  - **Copy pattern path** — the rule key (`runs.*.*.persona`), useful
-    when you want to set a rule on every sibling of the same shape.
-  - **Copy value as JSON** — the entire subtree pretty-printed.
-
-### v0.5.11
-
-- **Type pill now appears before the key in Editor rows** — matching the
-  Structure pane convention (`{}  title`, not `title  {}`).
-- **Responsive Editor row layout.** When the Editor pane is wide enough,
-  rows stay on a single line: `[handle] [type] [key] [value...] [×]`.
-  When the pane gets narrower (below ~460px), the value drops to its own
-  line spanning the full pane width, while the handle/type/key/× stay
-  compact on top. Fixes the previous overflow that was clipping value
-  textareas and delete buttons in narrow panes.
-- Word-wrap policy unchanged from 0.5.10 — wrap at word boundaries
-  first, mid-word only when necessary.
-
-### v0.5.10
-
-- **Wider default for value textareas.** The value column in editor rows
-  has a 200px minimum width now, so short strings like `"New document"`
-  no longer wrap to three-character lines in narrow Editor panes. Word-
-  wrap also no longer breaks mid-word unless absolutely necessary.
-- **Drag-resize the textarea horizontally to widen the Editor pane.**
-  String value boxes can now be resized in both directions via the
-  bottom-right corner. Dragging right past the textarea's available
-  width automatically grows the Editor pane to make room — no more
-  having to reach for the pane divider.
-- **Friendlier "couldn't open" errors.** Loading a file that isn't valid
-  JSON now shows a prominent error banner instead of a quiet message in
-  the status bar. Specific cases are detected and labelled — "looks like
-  XML/HTML", "looks like YAML", "the file is empty", or the actual parse
-  error with line/column from the JSON parser.
-
-### v0.5.09
-
-- **Type menu shows descriptions.** Clicking a type pill opens a menu where
-  each type — Object, Array, String, Number, Boolean, Null — has a one-
-  line explanation underneath the label, also available as a tooltip.
-- **Confirmation before destructive type changes.** Converting a non-empty
-  object to an array (which discards keys) or any container to a scalar
-  type (which discards everything inside) prompts you first, with a clear
-  message of what will be lost. Non-destructive changes (Array → Object,
-  Scalar → Container, Empty container → anything) go through without
-  prompting. Undo still works either way.
-- **String values get an auto-growing textarea.** Long strings now wrap
-  and expand to show their full content, up to a comfortable maximum
-  height. You can drag the corner to grow further. Numbers and booleans
-  keep their compact controls.
-- **Narrower index column for arrays.** Array rows show just `[0]`,
-  `[1]`, … in a narrow fixed-width column on the left, leaving much more
-  horizontal space for the value. Object key columns are unchanged.
-- **Removed `× Delete` from the Editor breadcrumb.** Deletion is now done
-  exclusively from the row-level `×` button in the parent's view. One
-  consistent place for both rename (key field) and delete (× button).
-
-### v0.5.08
-
-- **Click anywhere on a collapsed pane to expand it** — not just the
-  chevron. Hovering over a collapsed pane shows a subtle highlight to
-  indicate it's clickable.
-- **`+ key` and `+ item` buttons restored to the Structure pane.** Adding
-  a child to a container no longer requires opening it first; the button
-  appears at the bottom of each expanded container in the tree.
-- **Editing a key is more direct.** Selecting a leaf scalar in Structure
-  now opens its parent in the Editor with that leaf's row highlighted
-  and its key input auto-focused — so a single click on, say, `n_questions`
-  in the tree lets you immediately rename it.
-- **Drag-and-drop reordering.** Each Editor row has a drag handle
-  (`⋮⋮` on the left). Drag a row up or down to reorder within the same
-  parent — works for both arrays (splice) and objects (key reorder is
-  preserved through save). Drop indicators show where the row will land.
-- **Adding a new row auto-focuses its input.** After clicking + key /
-  + item, the new row's key (or value, for arrays) is focused and
-  selected so you can start typing immediately.
-
-### v0.5.07
-
-- **New Editor pane.** A fourth pane between Structure and Output, always
-  showing the currently-selected node with full editing capability.
-  Breadcrumb at top for navigation; each child of the selected node appears
-  as its own row with a key input, type pill, value input (or summary +
-  Open → for containers), and delete button. Clicking a container row
-  navigates into it.
-- **Structure pane is navigation-only now.** Click anywhere on a row to
-  select it — no more missing the tiny gap between key and value. All
-  editing happens in the Editor pane.
-- **All four panes are independently collapsible and resizable.** Output is
-  collapsible to the right just like Inspector; Editor is collapsible to
-  the left just like Structure. When Output is collapsed the flexible
-  1fr role automatically moves to whichever expanded pane is still present,
-  so the UI always fills the viewport.
-- **Dirty indicator.** When there are unsaved edits, the filename chip in
-  the toolbar shows an accent dot, Save JSON gets an accent outline, and
-  the browser tab title prepends a `●`. Cleared on open, new, or save.
-  A `beforeunload` warning prompts before leaving with unsaved edits.
-- **Fixed value-overlaps-key bug.** Tree rows no longer let long values
-  push keys off-screen or overlap them in narrow panes — proper flex
-  shrinking and overflow rules are now in place.
-- **Auto-scroll.** Selecting a node scrolls its Structure row into view.
 
 ### v0.5.06
 

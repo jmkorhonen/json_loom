@@ -43,7 +43,7 @@ body {
 /* ───────── App shell ───────── */
 .app {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
   height: 100vh;
 }
 
@@ -98,9 +98,26 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .doc-name:empty { display: none; }
 .doc-name.untitled { color: var(--muted); font-style: italic; }
+.doc-name.dirty { border-color: var(--accent); background: var(--accent-soft); }
+.doc-name .dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: none;
+  flex-shrink: 0;
+}
+.doc-name.dirty .dirty-dot { display: inline-block; }
+
+.tb-btn.primary.has-changes {
+  box-shadow: 0 0 0 1px var(--accent);
+}
 
 .tb-btn {
   padding: 5px 11px;
@@ -132,16 +149,96 @@ body {
   background-position: right 7px center;
 }
 
+/* ───────── Tab bar ───────── */
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--hairline);
+  padding: 4px 8px 0;
+  gap: 2px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 30px;
+}
+.tab-bar .tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+  max-width: 220px;
+  min-width: 80px;
+  position: relative;
+  top: 1px;
+  transition: background 100ms;
+}
+.tab-bar .tab:hover { background: var(--paper-2); }
+.tab-bar .tab.active {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+  border-bottom: 1px solid var(--paper);
+  z-index: 2;
+}
+.tab-bar .tab .tab-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+}
+.tab-bar .tab.dirty .tab-label { color: var(--accent); }
+.tab-bar .tab .tab-dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.tab-bar .tab .tab-close {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+}
+.tab-bar .tab:hover .tab-close { opacity: 1; }
+.tab-bar .tab .tab-close:hover { background: #f5d9d3; color: var(--danger); }
+.tab-bar .tab-new {
+  padding: 0 10px;
+  font-size: 16px;
+  color: var(--muted);
+  border-radius: 3px;
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: 4px;
+}
+.tab-bar .tab-new:hover { color: var(--accent); background: var(--paper); }
+
 /* ───────── Pane grid ───────── */
 .panes {
   display: grid;
-  grid-template-columns: var(--pane-tree-w, 320px) 4px 1fr 4px var(--pane-insp-w, 340px);
+  /* Template is set from JS in applyPaneWidths(); this is a safe fallback. */
+  grid-template-columns: 280px 4px 340px 4px 1fr 4px 340px;
   overflow: hidden;
   min-height: 0;
 }
-.panes.tree-collapsed { grid-template-columns: 28px 4px 1fr 4px var(--pane-insp-w, 340px); }
-.panes.insp-collapsed { grid-template-columns: var(--pane-tree-w, 320px) 4px 1fr 4px 28px; }
-.panes.tree-collapsed.insp-collapsed { grid-template-columns: 28px 4px 1fr 4px 28px; }
 
 .divider {
   background: transparent;
@@ -160,6 +257,7 @@ body {
   transform: translateX(-0.5px);
 }
 .divider:hover::before, .divider.dragging::before { background: var(--accent); }
+.divider.disabled { cursor: default; pointer-events: none; opacity: 0.5; }
 
 .pane {
   display: flex;
@@ -169,6 +267,7 @@ body {
   background: var(--paper);
 }
 .pane-tree { border-right: 0; }
+.pane-editor { background: var(--paper); }
 .pane-output { background: #fbf9f3; }
 .pane-inspector { }
 
@@ -199,6 +298,9 @@ body {
 .pane-collapse:hover { background: var(--paper-2); color: var(--ink); }
 
 /* Collapsed pane shows only a vertical strip with a button to reopen */
+.pane.collapsed { cursor: pointer; }
+.pane.collapsed:hover { background: var(--paper-2); }
+.pane.collapsed:hover .pane-collapse { color: var(--accent); }
 .pane.collapsed .pane-header { flex-direction: column; padding: 10px 0; border-bottom: 0; }
 .pane.collapsed .pane-title {
   writing-mode: vertical-rl;
@@ -227,6 +329,66 @@ body {
 .pane-tab:hover { color: var(--ink); }
 .pane-tab.active { color: var(--accent); background: var(--accent-soft); }
 
+/* ───────── Tree search ───────── */
+.tree-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+  flex-shrink: 0;
+}
+.tree-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  background: var(--paper-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink);
+}
+.tree-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: #fff;
+}
+.tree-search input::placeholder { color: var(--muted); font-style: italic; }
+.tree-search .search-clear {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 14px;
+  color: var(--muted);
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: none;
+}
+.tree-search .search-clear:hover { background: var(--paper-2); color: var(--accent); }
+.tree-search.has-query .search-clear { display: inline-flex; align-items: center; justify-content: center; }
+.tree-search .search-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+/* Highlight inside tree rows */
+.tree-row mark {
+  background: #fce8c0;
+  color: var(--ink);
+  padding: 0 1px;
+  border-radius: 2px;
+}
+
+/* tree-body is keyboard-focusable for navigation, but we don't want the
+   default browser outline — selection styling on the active row already
+   shows where you are. */
+#tree-body:focus { outline: none; }
+
 /* ───────── Tree ───────── */
 .tree-node { position: relative; }
 .tree-row {
@@ -237,6 +399,8 @@ body {
   border-radius: 3px;
   position: relative;
   min-height: 22px;
+  overflow: hidden;
+  cursor: pointer;
 }
 .tree-row:hover { background: var(--paper-2); }
 .tree-node.selected > .tree-row { background: var(--selection); box-shadow: inset 2px 0 0 var(--accent); }
@@ -277,32 +441,28 @@ body {
   color: var(--ink);
   padding: 0 2px;
   border-radius: 2px;
-  outline: none;
-  min-width: 2ch;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.tree-key[contenteditable="true"]:focus { background: #fff; box-shadow: 0 0 0 1px var(--accent); }
 .tree-key.root-label { color: var(--muted); font-style: italic; font-family: var(--serif); }
 .tree-key.array-index { color: var(--muted); font-weight: normal; }
 
-.tree-sep { color: var(--muted); font-family: var(--mono); }
+.tree-sep { color: var(--muted); font-family: var(--mono); flex-shrink: 0; }
 
 .tree-value {
   font-family: var(--mono);
   font-size: 12px;
   padding: 0 3px;
   border-radius: 2px;
-  outline: none;
-  max-width: 320px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex-shrink: 1;
-}
-.tree-value[contenteditable="true"]:focus {
-  background: #fff;
-  box-shadow: 0 0 0 1px var(--accent);
-  white-space: normal;
-  overflow: visible;
 }
 .value-string  { color: #7a3e1c; }
 .value-string::before { content: "\""; opacity: 0.5; }
@@ -384,19 +544,86 @@ body {
   box-shadow: var(--shadow);
   padding: 4px;
   z-index: 1000;
-  min-width: 120px;
+  min-width: 240px;
+  max-width: 320px;
 }
 .type-menu button {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 1px;
   width: 100%;
-  padding: 5px 8px;
+  padding: 6px 9px;
   border-radius: 3px;
-  font-size: 12px;
   text-align: left;
 }
 .type-menu button:hover { background: var(--paper-2); }
+.type-menu .type-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.type-menu .type-desc {
+  font-family: var(--serif);
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.3;
+}
+
+/* Tree context menu (right-click on a tree row) */
+.tree-context-menu {
+  position: fixed;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  padding: 4px;
+  z-index: 1000;
+  min-width: 220px;
+  max-width: 360px;
+}
+.tree-context-menu .menu-preview {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  padding: 5px 8px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+.tree-context-menu .menu-sep {
+  border-top: 1px solid var(--hairline);
+  margin: 4px 0;
+}
+.tree-context-menu button {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 6px 9px;
+  border-radius: 3px;
+  text-align: left;
+}
+.tree-context-menu button:hover { background: var(--paper-2); }
+.tree-context-menu .menu-label {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.tree-context-menu .menu-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ───────── Output ───────── */
 .output-view {
@@ -756,6 +983,46 @@ textarea.insp-input, .insp-textarea {
   max-width: 520px;
 }
 .banner.accent { border-color: var(--accent); }
+.banner.error-banner {
+  border-color: var(--danger);
+  background: #fdf3f0;
+  align-items: flex-start;
+  max-width: 580px;
+  padding: 12px 14px;
+  animation: error-banner-in 220ms ease-out;
+}
+.banner.error-banner .banner-icon {
+  color: var(--danger);
+  font-size: 16px;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+.banner.error-banner .banner-text {
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.banner.error-banner .banner-text strong { font-weight: 600; color: var(--danger); }
+.banner.error-banner .banner-detail {
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.banner.error-banner .banner-close {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  line-height: 1;
+}
+.banner.error-banner .banner-close:hover { background: #f5d9d3; color: var(--danger); }
+@keyframes error-banner-in {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
 
 /* Modal */
 .modal-backdrop {
@@ -825,6 +1092,298 @@ textarea.insp-input, .insp-textarea {
 .pane-body::-webkit-scrollbar-track { background: transparent; }
 
 /* Keyboard-style hints */
+/* ───────── Editor pane ───────── */
+.editor-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper-2);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  line-height: 1.6;
+}
+.editor-breadcrumb .crumb {
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--ink-2);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.editor-breadcrumb .crumb:hover {
+  color: var(--accent);
+  border-color: var(--hairline);
+  background: var(--paper);
+}
+.editor-breadcrumb .crumb.current {
+  color: var(--accent);
+  font-weight: 600;
+  cursor: default;
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+}
+.editor-breadcrumb .sep { color: var(--hairline-strong); padding: 0 1px; }
+
+.editor-shape {
+  padding: 6px 14px 2px;
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  font-family: var(--serif);
+}
+
+.editor-scalar {
+  padding: 16px 14px;
+}
+.editor-scalar label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.editor-scalar .value-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.editor-scalar .value-wrap .type-pill { margin-top: 8px; flex-shrink: 0; }
+.editor-scalar textarea,
+.editor-scalar input[type="text"],
+.editor-scalar input[type="number"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-2);
+  font-size: 13px;
+  font-family: var(--mono);
+  line-height: 1.5;
+}
+.editor-scalar textarea { min-height: 120px; resize: vertical; }
+.editor-scalar textarea:focus,
+.editor-scalar input:focus { outline: none; border-color: var(--accent); background: #fff; }
+.editor-scalar .bool-row { display: flex; gap: 8px; }
+.editor-scalar .bool-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  background: var(--paper-2);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.editor-scalar .bool-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.editor-scalar .null-hint {
+  padding: 8px 12px;
+  background: var(--paper-2);
+  border: 1px dashed var(--hairline);
+  border-radius: 3px;
+  color: var(--muted);
+  font-style: italic;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.editor-rows {
+  padding: 10px 12px 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* Editor body becomes a container so rows can adapt to its width */
+#editor-body {
+  container-type: inline-size;
+  container-name: editor;
+}
+
+.editor-row {
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--paper-2);
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: auto auto auto 1fr auto;
+  grid-template-areas: "handle type key val del";
+  gap: 6px 8px;
+  align-items: start;
+  transition: border-color 120ms;
+  /* When the row's children would overflow the row's width, allow the
+     value cell to wrap to its own line via the container query below. */
+}
+.editor-row > * { align-self: center; }
+.editor-row > .value-area { align-self: stretch; }
+.editor-row .drag-handle { grid-area: handle; }
+.editor-row .type-pill   { grid-area: type; }
+.editor-row .key-input   { grid-area: key; }
+.editor-row .value-area  { grid-area: val; min-width: 0; }
+.editor-row .row-delete  { grid-area: del; }
+
+/* Narrow layout: value drops to its own line, taking full pane width */
+@container editor (max-width: 460px) {
+  .editor-row {
+    grid-template-columns: auto auto 1fr auto;
+    grid-template-areas:
+      "handle type key del"
+      "val    val  val val";
+  }
+  .editor-row .value-area { margin-top: 2px; }
+}
+.editor-row:hover { border-color: var(--hairline-strong); }
+.editor-row.is-container {
+  cursor: pointer;
+}
+.editor-row.is-container:hover { background: var(--selection); border-color: var(--accent); }
+.editor-row.is-focused {
+  border-color: var(--accent);
+  background: var(--selection);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.editor-row .key-input {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  min-width: 0;
+  width: 140px;
+  max-width: 180px;
+}
+.editor-row .key-input:hover { background: var(--paper); border-color: var(--hairline); }
+.editor-row .key-input:focus { outline: none; background: #fff; border-color: var(--accent); }
+.editor-row .key-input.index-label {
+  color: var(--muted);
+  background: transparent;
+  pointer-events: none;
+  font-style: italic;
+  text-align: right;
+  width: 44px;
+  padding: 3px 4px;
+}
+.editor-row .value-area {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.editor-row .value-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  background: var(--paper);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.editor-row .value-input:focus { outline: none; border-color: var(--accent); background: #fff; }
+.editor-row .value-textarea {
+  resize: both;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 24px;
+  max-height: 480px;
+  overflow-y: auto;
+  font-family: var(--mono);
+}
+.editor-row .container-summary {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editor-row .open-btn {
+  padding: 3px 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--paper);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.editor-row .open-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
+.editor-row .row-delete {
+  padding: 2px 6px;
+  color: var(--muted);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.editor-row .row-delete:hover { background: #f5d9d3; color: var(--danger); }
+
+.editor-row .drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 22px;
+  color: var(--hairline-strong);
+  cursor: grab;
+  user-select: none;
+  font-size: 14px;
+  line-height: 1;
+}
+.editor-row .drag-handle:hover { color: var(--accent); }
+.editor-row .drag-handle:active { cursor: grabbing; }
+.editor-row.dragging { opacity: 0.4; }
+.editor-row.drop-before { box-shadow: 0 -2px 0 0 var(--accent); }
+.editor-row.drop-after  { box-shadow: 0  2px 0 0 var(--accent); }
+/* Override is-focused shadow when also showing a drop indicator */
+.editor-row.drop-before.is-focused { box-shadow: 0 -2px 0 0 var(--accent), 0 0 0 1px var(--accent); }
+.editor-row.drop-after.is-focused  { box-shadow: 0  2px 0 0 var(--accent), 0 0 0 1px var(--accent); }
+.editor-row .bool-inline { display: flex; gap: 4px; }
+.editor-row .bool-inline button {
+  padding: 2px 10px;
+  font-size: 11px;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  background: var(--paper);
+}
+.editor-row .bool-inline button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.editor-empty {
+  padding: 30px 20px;
+  text-align: center;
+  font-family: var(--serif);
+  color: var(--muted);
+  font-style: italic;
+}
+.editor-add-wrap {
+  display: flex;
+  gap: 6px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--hairline);
+  background: var(--paper);
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
+}
+.editor-add {
+  padding: 6px 12px;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.editor-add:hover { color: var(--accent); border-color: var(--accent); }
+
 kbd {
   display: inline-block;
   font-family: var(--mono);
@@ -843,7 +1402,7 @@ kbd {
   <!-- Toolbar -->
   <header class="toolbar">
     <div class="logo">Loom<span class="logo-ver" id="logo-ver"></span></div>
-    <div class="doc-name" id="doc-name" title="Current document"></div>
+    <div class="doc-name" id="doc-name" title="Current document"><span class="dirty-dot"></span><span class="doc-name-text"></span></div>
     <button class="tb-btn" id="btn-new" title="New document (clears everything)">New</button>
     <button class="tb-btn" id="btn-open" title="Open JSON file">Open…</button>
     <div class="tb-sep"></div>
@@ -865,6 +1424,9 @@ kbd {
   </header>
 
   <!-- Panes -->
+  <!-- Document tabs -->
+  <div class="tab-bar" id="tab-bar"></div>
+
   <div class="panes" id="panes">
     <!-- Tree -->
     <aside class="pane pane-tree" id="pane-tree">
@@ -873,10 +1435,27 @@ kbd {
         <div class="pane-spacer"></div>
         <button class="pane-collapse" id="collapse-tree" title="Collapse">⟨</button>
       </div>
-      <div class="pane-body" id="tree-body"></div>
+      <div class="tree-search" id="tree-search-wrap">
+        <input type="text" id="tree-search" placeholder="Filter by key or value…" spellcheck="false">
+        <button class="search-clear" id="tree-search-clear" title="Clear filter">×</button>
+        <span class="search-count" id="tree-search-count"></span>
+      </div>
+      <div class="pane-body" id="tree-body" tabindex="-1"></div>
     </aside>
 
     <div class="divider" id="div-tree"></div>
+
+    <!-- Editor -->
+    <aside class="pane pane-editor" id="pane-editor">
+      <div class="pane-header">
+        <button class="pane-collapse" id="collapse-editor-left" title="Collapse">⟨</button>
+        <span class="pane-title">Editor</span>
+        <div class="pane-spacer"></div>
+      </div>
+      <div class="pane-body" id="editor-body"></div>
+    </aside>
+
+    <div class="divider" id="div-editor"></div>
 
     <!-- Output -->
     <section class="pane pane-output" id="pane-output">
@@ -889,11 +1468,12 @@ kbd {
           <button class="pane-tab" data-tab="split">Split plan</button>
         </div>
         <div class="pane-spacer"></div>
+        <button class="pane-collapse" id="collapse-output" title="Collapse">⟩</button>
       </div>
       <div class="pane-body" id="output-body"></div>
     </section>
 
-    <div class="divider" id="div-insp"></div>
+    <div class="divider" id="div-output"></div>
 
     <!-- Inspector -->
     <aside class="pane pane-inspector" id="pane-inspector">
@@ -934,6 +1514,9 @@ kbd {
    STATE
    ══════════════════════════════════════════════════════════════ */
 const state = {
+  // The "current" working state. Top-level fields here are mirrored from
+  // the active tab's snapshot. On tab switch, the current tab's snapshot
+  // captures these, and the new tab's snapshot is loaded into them.
   doc: { title: "New document", sections: [] },
   docName: null, // filename (without extension) of the currently loaded JSON, if any
   rules: {},   // patternPath -> rule object
@@ -942,19 +1525,213 @@ const state = {
   docFrontMatter: "", // document-wide front matter (applied to main file / index.md)
   selection: null, // null = nothing selected; [] = root selected; [...] = deeper path
   expanded: new Set(["[]"]), // JSON-encoded paths that are expanded
+  search: "",  // current Structure-pane filter query
   outputTab: "preview",
   inspectorTab: "rule",
-  panes: { tree: { w: 320, collapsed: false }, insp: { w: 340, collapsed: false } },
-  preset: null,
   history: { past: [], future: [] },
   lastSaved: null,
   dirty: false,
+
+  // Multi-document tabs
+  tabs: [],          // [{ id, doc, docName, ...snapshot... }, ...]
+  activeTabId: null, // id of the tab whose snapshot is currently in state.*
+
+  // Truly global (not per-tab):
+  panes: {
+    tree:      { w: 280, collapsed: false },
+    editor:    { w: 340, collapsed: false },
+    inspector: { w: 340, collapsed: false },
+    output:    { collapsed: false }, // width is always computed (1fr or 28px)
+  },
+  preset: null,
 };
 
-const VERSION = "v0.5.06";
+const VERSION = "v1.0";
 const DEFAULT_TEMPLATE = "{i:02}-{.name}.md";
 const MAX_HISTORY = 50;
 const AUTOSAVE_DEBOUNCE = 800;
+
+/** Build a fresh tab snapshot with sensible defaults. */
+function makeTabSnapshot() {
+  return {
+    id: "tab-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+    doc: { title: "New document" },
+    docName: null,
+    rules: {},
+    splits: {},
+    annotations: {},
+    docFrontMatter: "",
+    selection: null,
+    expanded: new Set(["[]"]),
+    search: "",
+    outputTab: "preview",
+    history: { past: [], future: [] },
+    dirty: false,
+    lastSaved: null,
+  };
+}
+
+/** Capture the working state.* fields into the active tab's snapshot. */
+function captureActiveTab() {
+  const tab = state.tabs.find(t => t.id === state.activeTabId);
+  if (!tab) return;
+  tab.doc = state.doc;
+  tab.docName = state.docName;
+  tab.rules = state.rules;
+  tab.splits = state.splits;
+  tab.annotations = state.annotations;
+  tab.docFrontMatter = state.docFrontMatter;
+  tab.selection = state.selection;
+  tab.expanded = state.expanded;
+  tab.search = state.search;
+  tab.outputTab = state.outputTab;
+  tab.history = state.history;
+  tab.dirty = state.dirty;
+  tab.lastSaved = state.lastSaved;
+}
+
+/** Restore a tab's snapshot into the working state.* fields. */
+function loadTabIntoState(tab) {
+  state.doc = tab.doc;
+  state.docName = tab.docName;
+  state.rules = tab.rules;
+  state.splits = tab.splits;
+  state.annotations = tab.annotations;
+  state.docFrontMatter = tab.docFrontMatter;
+  state.selection = tab.selection;
+  state.expanded = tab.expanded;
+  state.search = tab.search;
+  state.outputTab = tab.outputTab;
+  state.history = tab.history;
+  state.dirty = tab.dirty;
+  state.lastSaved = tab.lastSaved;
+  state.activeTabId = tab.id;
+}
+
+/** Add a new empty tab and switch to it. */
+function newTab() {
+  captureActiveTab();
+  const tab = makeTabSnapshot();
+  state.tabs.push(tab);
+  loadTabIntoState(tab);
+  syncSearchInput();
+  syncTabUI();
+  afterChange();
+}
+
+/** Switch to the tab with the given id (no-op if already active). */
+function switchToTab(tabId) {
+  if (tabId === state.activeTabId) return;
+  captureActiveTab();
+  const next = state.tabs.find(t => t.id === tabId);
+  if (!next) return;
+  loadTabIntoState(next);
+  syncSearchInput();
+  syncTabUI();
+  afterChange();
+}
+
+/** Close a tab. If it's dirty, prompt first. If it's the last tab, replace
+ *  with a fresh empty one rather than leaving the workspace empty. */
+function closeTab(tabId) {
+  const idx = state.tabs.findIndex(t => t.id === tabId);
+  if (idx < 0) return;
+  // Snapshot up-to-date dirty state before reading it
+  if (tabId === state.activeTabId) captureActiveTab();
+  const tab = state.tabs[idx];
+  if (tab.dirty) {
+    const name = tab.docName ? tab.docName + ".json" : "untitled";
+    if (!confirm(`${name} has unsaved changes. Close anyway?`)) return;
+  }
+  // Last tab: replace with a fresh one rather than leave empty
+  if (state.tabs.length === 1) {
+    const fresh = makeTabSnapshot();
+    state.tabs = [fresh];
+    loadTabIntoState(fresh);
+    syncSearchInput();
+    syncTabUI();
+    afterChange();
+    return;
+  }
+  // Otherwise: remove, and if it was active, pick a neighbor
+  const wasActive = tabId === state.activeTabId;
+  state.tabs.splice(idx, 1);
+  if (wasActive) {
+    const newActive = state.tabs[Math.min(idx, state.tabs.length - 1)];
+    loadTabIntoState(newActive);
+    syncSearchInput();
+  }
+  syncTabUI();
+  afterChange();
+}
+
+/** Sync the Structure search input element to the active tab's search query. */
+function syncSearchInput() {
+  const si = document.getElementById("tree-search");
+  if (si) si.value = state.search || "";
+}
+
+/** Re-render the tab bar to reflect tabs, active state, and dirty markers. */
+function syncTabUI() {
+  const bar = document.getElementById("tab-bar");
+  if (!bar) return;
+  bar.innerHTML = "";
+  for (const tab of state.tabs) {
+    // Use the live state for the active tab (latest dirty/name) and
+    // the snapshot for others.
+    const isActive = tab.id === state.activeTabId;
+    const dirty = isActive ? state.dirty : tab.dirty;
+    const docName = isActive ? state.docName : tab.docName;
+    const el = document.createElement("div");
+    el.className = "tab" + (isActive ? " active" : "") + (dirty ? " dirty" : "");
+    el.title = (docName || "untitled") + (dirty ? " (unsaved)" : "");
+    if (dirty) {
+      const dot = document.createElement("span");
+      dot.className = "tab-dirty-dot";
+      el.appendChild(dot);
+    }
+    const label = document.createElement("span");
+    label.className = "tab-label";
+    label.textContent = docName || "untitled";
+    el.appendChild(label);
+    const close = document.createElement("button");
+    close.className = "tab-close";
+    close.innerHTML = "×";
+    close.title = "Close tab";
+    close.addEventListener("click", (e) => { e.stopPropagation(); closeTab(tab.id); });
+    el.appendChild(close);
+    el.addEventListener("click", () => switchToTab(tab.id));
+    bar.appendChild(el);
+  }
+  const newBtn = document.createElement("button");
+  newBtn.className = "tab-new";
+  newBtn.innerHTML = "+";
+  newBtn.title = "New tab";
+  newBtn.addEventListener("click", () => newTab());
+  bar.appendChild(newBtn);
+}
+
+/** Decide whether the active tab is "fresh" — empty default doc with no
+ *  edits or rules. Used so File→Open replaces a fresh tab rather than
+ *  leaving an empty one stranded. */
+function isActiveTabFresh() {
+  if (state.dirty) return false;
+  if (state.docName) return false;
+  if (Object.keys(state.rules).length > 0) return false;
+  if (Object.keys(state.splits).length > 0) return false;
+  if (Object.keys(state.annotations).length > 0) return false;
+  if (state.history.past.length > 0) return false;
+  // Doc must look like the default "New document" template
+  const d = state.doc;
+  if (!d || typeof d !== "object") return false;
+  const keys = Object.keys(d);
+  if (keys.length > 2) return false;
+  if (keys.length === 1 && keys[0] === "title") return true;
+  if (keys.length === 2 && keys.includes("title") && keys.includes("sections")) {
+    return Array.isArray(d.sections) && d.sections.length === 0;
+  }
+  return false;
+}
 
 function debounced(fn, ms) {
   let t = null;
@@ -962,6 +1739,51 @@ function debounced(fn, ms) {
     clearTimeout(t);
     t = setTimeout(() => fn.apply(this, args), ms);
   };
+}
+
+/** Resize a textarea to fit its content (single-line tall when empty,
+ *  growing as the user types).  Called on input and when first rendered. */
+function autosizeTextarea(ta) {
+  if (!ta) return;
+  // Reset height first so shrinks work too
+  ta.style.height = "auto";
+  // Cap reasonable height; user can still scroll within if longer
+  const max = 480;
+  ta.style.height = Math.min(max, ta.scrollHeight) + "px";
+}
+
+/** Watch a textarea for horizontal resize (via the resize handle).
+ *  When the user drags it wider than its natural slot allows, grow the
+ *  Editor pane width by the same amount so the textarea is fully visible
+ *  rather than overflowing the row. */
+function observeTextareaResize(ta) {
+  if (!ta || typeof ResizeObserver === "undefined") return;
+  // Track the textarea's own width — when it grows beyond what the row
+  // can give it, push the Editor pane wider. Use a small ignore-window
+  // so autosize-driven height changes don't trigger pane growth.
+  let lastW = ta.offsetWidth;
+  const observer = new ResizeObserver(() => {
+    const w = ta.offsetWidth;
+    if (w === lastW) return;
+    const grew = w > lastW;
+    lastW = w;
+    if (!grew) return;
+    // How much room does the textarea's slot actually have?
+    const slot = ta.parentElement; // .value-area
+    if (!slot) return;
+    const overflow = ta.offsetWidth - slot.clientWidth;
+    if (overflow <= 4) return;
+    // Bump the Editor pane width by the overflow, capped at the
+    // setupPaneResize bounds (180–640).
+    const next = Math.min(640, state.panes.editor.w + overflow + 12);
+    if (next === state.panes.editor.w) return;
+    state.panes.editor.w = next;
+    applyPaneWidths();
+  });
+  observer.observe(ta);
+  // Stop observing once the textarea is detached (renderEditor swaps it)
+  // — ResizeObserver doesn't auto-stop, but once the element is GC'd it
+  // will. We don't need to track this manually for short-lived elements.
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1069,6 +1891,16 @@ function subtreeHasNumbers(v, depth = 0) {
   return false;
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+function subtreeHasISODates(v, depth = 0) {
+  if (depth > 4) return false;
+  if (typeof v === "string" && ISO_DATE_RE.test(v)) return true;
+  if (Array.isArray(v)) return v.some(x => subtreeHasISODates(x, depth + 1));
+  if (v && typeof v === "object") return Object.values(v).some(x => subtreeHasISODates(x, depth + 1));
+  return false;
+}
+
 function parseScalar(text, originalType) {
   // Preserve the type when editing a leaf value; allow type coercion if the text clearly indicates
   if (originalType === "number") {
@@ -1093,6 +1925,7 @@ function pushHistory() {
   state.history.past.push(snapshot());
   if (state.history.past.length > MAX_HISTORY) state.history.past.shift();
   state.history.future = [];
+  state.dirty = true;
   updateUndoButtons();
 }
 
@@ -1142,6 +1975,8 @@ function defaultRule() {
     valueStyle: "plain",    // plain | bold | italic | boldItalic
     tableMode: "kv",        // kv | rows (for objects rendered as tables)
     decimalMark: ".",       // "." | "," — thousand-separator style for numbers
+    decimals: "",           // "" (none) | 0..6 — fixed decimal places for numbers
+    dateFormat: "none",     // none | short | medium | iso-date | time | datetime
     columns: null,          // null = all primitive fields; [".name",...]
     joins: {},              // { ".tags": ", " }
   };
@@ -1240,9 +2075,50 @@ function styleMD(text, style) {
 
 function formatNumber(n, rule) {
   if (typeof n !== "number" || !Number.isFinite(n)) return String(n);
-  const s = String(n);
+  let s;
+  // Apply fixed-decimal rounding when requested
+  const d = rule && rule.decimals;
+  if (d !== undefined && d !== null && d !== "") {
+    const dn = parseInt(d, 10);
+    if (Number.isFinite(dn) && dn >= 0 && dn <= 20) {
+      s = n.toFixed(dn);
+    } else {
+      s = String(n);
+    }
+  } else {
+    s = String(n);
+  }
   if (rule && rule.decimalMark === ",") return s.replace(".", ",");
   return s;
+}
+
+/** Detect ISO 8601 dates/datetimes and format them per the rule's dateFormat
+ *  setting. Returns a formatted string when the input looks like a date
+ *  AND the rule asks for a non-"none" format; otherwise returns null so
+ *  the caller can fall back to the original string. */
+function formatDateValue(value, rule) {
+  if (typeof value !== "string") return null;
+  if (!rule || !rule.dateFormat || rule.dateFormat === "none") return null;
+  if (!ISO_DATE_RE.test(value)) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  // Use Intl.DateTimeFormat for consistent locale-friendly output.
+  const hasTime = value.includes("T");
+  let opts;
+  switch (rule.dateFormat) {
+    case "short":    opts = { month: "short", day: "numeric", year: "numeric" }; break;  // Mar 5, 2026
+    case "medium":   opts = { month: "long", day: "numeric", year: "numeric" }; break;   // March 5, 2026
+    case "iso-date": return value.slice(0, 10);                                          // 2026-03-05
+    case "time":     opts = { hour: "numeric", minute: "2-digit" }; break;               // 12:40 PM
+    case "datetime": opts = { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }; break;
+    default: return null;
+  }
+  if (rule.dateFormat === "time" && !hasTime) return null; // can't format date-only as time
+  try {
+    return new Intl.DateTimeFormat(undefined, opts).format(d);
+  } catch {
+    return null;
+  }
 }
 
 /** Resolve {.field}, {parent.field}, {$.field} / {doc.field} tokens against nodes. */
@@ -1362,7 +2238,10 @@ function escapeMdCell(s) {
 function mdInline(value, join = ", ", rule) {
   const t = typeOf(value);
   if (t === "null" || value === undefined) return "";
-  if (t === "string") return value;
+  if (t === "string") {
+    const dt = formatDateValue(value, rule);
+    return dt !== null ? dt : value;
+  }
   if (t === "number") return formatNumber(value, rule);
   if (t === "boolean") return String(value);
   if (t === "array") return value.map(v => mdInline(v, join, rule)).join(join);
@@ -1398,7 +2277,10 @@ function _renderMDBody(value, path, ctx) {
     const keyLabel = path.length === 0 ? null : formatLabel(path[path.length - 1], rule.labelFormat);
     if (rule.role === "skip") return "";
     let valStr;
-    if (t === "string") valStr = value;
+    if (t === "string") {
+      const dt = formatDateValue(value, rule);
+      valStr = dt !== null ? dt : value;
+    }
     else if (t === "null") valStr = "—";
     else if (t === "number") valStr = formatNumber(value, rule);
     else valStr = String(value);
@@ -1966,16 +2848,47 @@ function generateXLSXBlob() {
       }
     }
     flatten(state.doc, "");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Document");
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    autoFitColumns(sheet);
+    XLSX.utils.book_append_sheet(wb, sheet, "Document");
   } else {
     for (const s of sources) {
       const sheet = s.sections
         ? XLSX.utils.aoa_to_sheet(sectionsToAOA(s.sections))
         : XLSX.utils.json_to_sheet(s.rows);
+      autoFitColumns(sheet);
       XLSX.utils.book_append_sheet(wb, sheet, s.name);
     }
   }
   return XLSX.write(wb, { bookType: "xlsx", type: "array" });
+}
+
+/** Walk a worksheet's cells and set column widths to fit their content.
+ *  Uses XLSX-style `wch` (character count) units. Caps at a reasonable
+ *  maximum so a single huge cell can't blow the layout out. */
+function autoFitColumns(ws) {
+  if (!ws || !ws["!ref"]) return;
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  const widths = [];
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    let max = 4; // sensible minimum
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      const addr = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = ws[addr];
+      if (!cell) continue;
+      const display = cell.w !== undefined ? cell.w
+                    : cell.v === null || cell.v === undefined ? ""
+                    : String(cell.v);
+      // Take the longest line in case a cell is multi-line
+      const lines = display.split("\n");
+      for (const line of lines) {
+        if (line.length > max) max = line.length;
+      }
+    }
+    // Padding plus a soft cap; very wide content can still wrap visually.
+    widths[C - range.s.c] = { wch: Math.min(60, max + 2) };
+  }
+  ws["!cols"] = widths;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1994,7 +2907,65 @@ function isSelected(path) { return state.selection !== null && pathKey(path) ===
 function renderTree() {
   const root = document.getElementById("tree-body");
   root.innerHTML = "";
-  root.appendChild(renderTreeNode(state.doc, []));
+  // Compute the search match-set and auto-expand ancestors of matches.
+  const ctx = computeSearchContext(state.search);
+  root.appendChild(renderTreeNode(state.doc, [], ctx));
+  updateSearchUIState(ctx);
+}
+
+/** Walk the tree and find all paths whose key or value matches the query.
+ *  Returns:
+ *    visible: Set<pathKey> — every path that should be rendered (matches + ancestors).
+ *    matches: Set<pathKey> — every path that is itself a direct match.
+ *    query:   the lowercased query (or "" if no search).
+ *  Also auto-expands every ancestor of a match so matches are reachable. */
+function computeSearchContext(rawQuery) {
+  const query = (rawQuery || "").trim().toLowerCase();
+  if (!query) return { query: "", visible: null, matches: null, count: 0 };
+
+  const matches = new Set();
+  const visible = new Set();
+  function add(path) {
+    visible.add(pathKey(path));
+    for (let i = 1; i <= path.length; i++) {
+      visible.add(pathKey(path.slice(0, -i)));
+    }
+  }
+  function walk(value, path) {
+    // Check this node
+    const lastSeg = path[path.length - 1];
+    const keyText = path.length === 0 ? "" : (typeof lastSeg === "number" ? `[${lastSeg}]` : String(lastSeg));
+    const t = typeOf(value);
+    let valueText = "";
+    if (t === "string" || t === "number" || t === "boolean") valueText = String(value);
+    if (keyText.toLowerCase().includes(query) || valueText.toLowerCase().includes(query)) {
+      matches.add(pathKey(path));
+      add(path);
+      // Auto-expand all ancestors so the match is reachable
+      for (let i = 0; i < path.length; i++) {
+        state.expanded.add(pathKey(path.slice(0, i)));
+      }
+    }
+    if (t === "object") for (const k of Object.keys(value)) walk(value[k], [...path, k]);
+    else if (t === "array") value.forEach((v, i) => walk(v, [...path, i]));
+  }
+  walk(state.doc, []);
+  // Always include root so something renders even if root itself isn't a match
+  visible.add(pathKey([]));
+  return { query, visible, matches, count: matches.size };
+}
+
+function updateSearchUIState(ctx) {
+  const wrap = document.getElementById("tree-search-wrap");
+  const count = document.getElementById("tree-search-count");
+  if (!wrap || !count) return;
+  if (ctx.query) {
+    wrap.classList.add("has-query");
+    count.textContent = `${ctx.count} match${ctx.count === 1 ? "" : "es"}`;
+  } else {
+    wrap.classList.remove("has-query");
+    count.textContent = "";
+  }
 }
 
 function typeLabel(t) {
@@ -2027,7 +2998,13 @@ function buildTreeMarks(path, t, value) {
   return marks;
 }
 
-function renderTreeNode(value, path) {
+function renderTreeNode(value, path, ctx) {
+  // If a search is active and this path isn't in the visible set, skip it.
+  // The root path is always visible (computeSearchContext adds it).
+  if (ctx && ctx.visible && !ctx.visible.has(pathKey(path))) {
+    return document.createDocumentFragment();
+  }
+
   const t = typeOf(value);
   const nodeEl = document.createElement("div");
   nodeEl.className = "tree-node";
@@ -2036,9 +3013,18 @@ function renderTreeNode(value, path) {
   const row = document.createElement("div");
   row.className = "tree-row";
   row.dataset.path = pathKey(path);
+  // Whole row selects; pill and expand arrow stop propagation.
   row.addEventListener("click", (e) => {
-    if (e.target.closest(".tree-expand,.type-pill,.tree-action,.tree-value,.tree-key[contenteditable='true']")) return;
+    if (e.target.closest(".tree-expand,.type-pill")) return;
     selectPath(path);
+    // Move keyboard focus to tree-body so arrow keys work without an extra click
+    const treeBody = document.getElementById("tree-body");
+    if (treeBody && typeof treeBody.focus === "function") treeBody.focus();
+  });
+  // Right-click → context menu (Copy path / Copy value)
+  row.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    showTreeContextMenu(e.clientX, e.clientY, path, value);
   });
 
   // Expand arrow
@@ -2053,7 +3039,7 @@ function renderTreeNode(value, path) {
     row.appendChild(sp);
   }
 
-  // Type pill
+  // Type pill (still clickable to change type via menu)
   const pill = document.createElement("button");
   pill.className = "type-pill type-" + t;
   pill.textContent = typeLabel(t);
@@ -2061,39 +3047,25 @@ function renderTreeNode(value, path) {
   pill.addEventListener("click", (e) => { e.stopPropagation(); showTypeMenu(e.currentTarget, path); });
   row.appendChild(pill);
 
-  // Key
+  // Key — static (with optional highlight)
   const keyEl = document.createElement("span");
   keyEl.className = "tree-key";
   const parentPath = path.slice(0, -1);
   const parent = parentPath.length === 0 ? state.doc : getAt(state.doc, parentPath);
   const isArrayChild = Array.isArray(parent);
+  const query = (ctx && ctx.query) || "";
   if (path.length === 0) {
     keyEl.classList.add("root-label");
     keyEl.textContent = "root";
   } else if (isArrayChild) {
     keyEl.classList.add("array-index");
-    keyEl.textContent = `[${path[path.length - 1]}]`;
+    setTextWithHighlight(keyEl, `[${path[path.length - 1]}]`, query);
   } else {
-    keyEl.textContent = String(path[path.length - 1]);
-    keyEl.contentEditable = "true";
-    keyEl.spellcheck = false;
-    keyEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); keyEl.blur(); }
-      if (e.key === "Escape") { keyEl.textContent = String(path[path.length - 1]); keyEl.blur(); }
-    });
-    keyEl.addEventListener("blur", () => {
-      const newKey = keyEl.textContent.trim();
-      if (!newKey || newKey === path[path.length - 1]) { keyEl.textContent = String(path[path.length - 1]); return; }
-      const parentKeys = parent && typeof parent === "object" ? Object.keys(parent) : [];
-      if (parentKeys.includes(newKey)) { keyEl.textContent = String(path[path.length - 1]); flashStatus("Key already exists", true); return; }
-      pushHistory();
-      state.doc = renameKeyAt(state.doc, parentPath, path[path.length - 1], newKey);
-      afterChange();
-    });
+    setTextWithHighlight(keyEl, String(path[path.length - 1]), query);
   }
   row.appendChild(keyEl);
 
-  // Value or summary
+  // Value or summary — static preview only (highlight string/number values)
   if (t === "object" || t === "array") {
     const summary = document.createElement("span");
     summary.className = "tree-summary";
@@ -2106,23 +3078,7 @@ function renderTreeNode(value, path) {
     row.appendChild(sep);
     const valEl = document.createElement("span");
     valEl.className = "tree-value value-" + t;
-    valEl.textContent = formatValuePreview(value);
-    if (t !== "null") {
-      valEl.contentEditable = "true";
-      valEl.spellcheck = false;
-    }
-    valEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); valEl.blur(); }
-      if (e.key === "Escape") { valEl.textContent = formatValuePreview(value); valEl.blur(); }
-    });
-    valEl.addEventListener("blur", () => {
-      const txt = valEl.textContent;
-      const newVal = parseScalar(txt, t);
-      if (newVal === value) return;
-      pushHistory();
-      state.doc = setAt(state.doc, path, newVal);
-      afterChange();
-    });
+    setTextWithHighlight(valEl, formatValuePreview(value), query);
     row.appendChild(valEl);
   }
 
@@ -2141,26 +3097,6 @@ function renderTreeNode(value, path) {
     row.appendChild(wrap);
   }
 
-  // Actions
-  const actions = document.createElement("span"); actions.className = "tree-actions";
-  if (path.length > 0) {
-    const del = document.createElement("button");
-    del.className = "tree-action delete";
-    del.innerHTML = "×";
-    del.title = "Delete";
-    del.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const v = getAt(state.doc, path);
-      const nonEmpty = v && typeof v === "object" &&
-        ((Array.isArray(v) && v.length > 0) || (!Array.isArray(v) && Object.keys(v).length > 0));
-      const keyLabel = Array.isArray(getAt(state.doc, path.slice(0, -1))) ? `[${path[path.length-1]}]` : String(path[path.length-1]);
-      if (nonEmpty && !confirm(`Delete ${keyLabel}? It contains ${Array.isArray(v) ? v.length + " items" : Object.keys(v).length + " keys"}. (You can undo.)`)) return;
-      deleteNode(path);
-    });
-    actions.appendChild(del);
-  }
-  row.appendChild(actions);
-
   nodeEl.appendChild(row);
 
   // Children
@@ -2169,37 +3105,85 @@ function renderTreeNode(value, path) {
     children.className = "tree-children";
     if (t === "object") {
       for (const k of Object.keys(value)) {
-        children.appendChild(renderTreeNode(value[k], [...path, k]));
+        children.appendChild(renderTreeNode(value[k], [...path, k], ctx));
       }
     } else {
-      value.forEach((v, i) => children.appendChild(renderTreeNode(v, [...path, i])));
+      value.forEach((v, i) => children.appendChild(renderTreeNode(v, [...path, i], ctx)));
     }
-    const add = document.createElement("button");
-    add.className = "tree-add";
-    add.textContent = t === "object" ? "+ key" : "+ item";
-    add.addEventListener("click", (e) => { e.stopPropagation(); addChild(path); });
-    children.appendChild(add);
+    // The + key / + item button is hidden during a search (it would make
+    // the new row vanish since it doesn't match). Otherwise show as before.
+    if (!(ctx && ctx.query)) {
+      const add = document.createElement("button");
+      add.className = "tree-add";
+      add.textContent = t === "object" ? "+ key" : "+ item";
+      add.title = t === "object" ? "Add a new key under this object" : "Append an item to this array";
+      add.addEventListener("click", (e) => { e.stopPropagation(); addChild(path); });
+      children.appendChild(add);
+    }
     nodeEl.appendChild(children);
   }
 
   return nodeEl;
 }
 
+/** Set element text content, optionally highlighting case-insensitive matches
+ *  of `query` with <mark> wrappers. Uses safe DOM operations (no innerHTML). */
+function setTextWithHighlight(el, text, query) {
+  el.textContent = "";
+  if (!query) { el.textContent = text; return; }
+  const lower = text.toLowerCase();
+  const q = query.toLowerCase();
+  let i = 0;
+  while (i < text.length) {
+    const hit = lower.indexOf(q, i);
+    if (hit < 0) {
+      el.appendChild(document.createTextNode(text.slice(i)));
+      break;
+    }
+    if (hit > i) el.appendChild(document.createTextNode(text.slice(i, hit)));
+    const mark = document.createElement("mark");
+    mark.textContent = text.slice(hit, hit + q.length);
+    el.appendChild(mark);
+    i = hit + q.length;
+  }
+}
+
 function addChild(parentPath) {
   const parent = parentPath.length === 0 ? state.doc : getAt(state.doc, parentPath);
   if (!parent || typeof parent !== "object") return;
   pushHistory();
+  let newKey;
   if (Array.isArray(parent)) {
+    newKey = parent.length;
     const next = [...parent, ""];
     state.doc = parentPath.length === 0 ? next : setAt(state.doc, parentPath, next);
   } else {
     let base = "newKey", k = base, i = 2;
     while (k in parent) k = `${base}${i++}`;
+    newKey = k;
     const next = { ...parent, [k]: "" };
     state.doc = parentPath.length === 0 ? next : setAt(state.doc, parentPath, next);
   }
   state.expanded.add(pathKey(parentPath));
+  // Select the parent so the new row shows up in the Editor pane,
+  // then focus the new row's key input (or value input for arrays)
+  // so the user can start typing immediately.
+  state.selection = parentPath;
   afterChange();
+  setTimeout(() => {
+    const body = document.getElementById("editor-body");
+    if (!body) return;
+    const rows = body.querySelectorAll(".editor-row");
+    const lastRow = rows[rows.length - 1];
+    if (!lastRow) return;
+    const target = Array.isArray(parent)
+      ? lastRow.querySelector(".value-input, textarea, .bool-inline button")
+      : lastRow.querySelector(".key-input:not(.index-label)");
+    if (target && typeof target.focus === "function") {
+      target.focus();
+      if (typeof target.select === "function") target.select();
+    }
+  }, 0);
 }
 
 function deleteNode(path) {
@@ -2210,10 +3194,610 @@ function deleteNode(path) {
   afterChange();
 }
 
+/** Move a child within its parent from one position to another.
+ *  For arrays: splice. For objects: rebuild with keys in new order. */
+function moveChild(parentPath, fromKey, toIndex) {
+  const parent = parentPath.length === 0 ? state.doc : getAt(state.doc, parentPath);
+  if (!parent || typeof parent !== "object") return;
+  if (Array.isArray(parent)) {
+    const fromIndex = typeof fromKey === "number" ? fromKey : parseInt(fromKey, 10);
+    if (!Number.isFinite(fromIndex)) return;
+    if (fromIndex === toIndex) return;
+    const next = parent.slice();
+    const [item] = next.splice(fromIndex, 1);
+    // Adjust target index if removing from before it
+    const insertAt = toIndex > fromIndex ? toIndex - 1 : toIndex;
+    next.splice(insertAt, 0, item);
+    pushHistory();
+    state.doc = parentPath.length === 0 ? next : setAt(state.doc, parentPath, next);
+    // Keep the selection on the moved item if it was selected
+    if (state.selection && state.selection.length > parentPath.length &&
+        pathKey(state.selection.slice(0, parentPath.length)) === pathKey(parentPath) &&
+        state.selection[parentPath.length] === fromIndex) {
+      state.selection = [...parentPath, insertAt, ...state.selection.slice(parentPath.length + 1)];
+    }
+    afterChange();
+    return;
+  }
+  // Object: rebuild key order
+  const keys = Object.keys(parent);
+  const fromIndex = keys.indexOf(String(fromKey));
+  if (fromIndex < 0) return;
+  if (fromIndex === toIndex) return;
+  const reorderedKeys = keys.slice();
+  const [movedKey] = reorderedKeys.splice(fromIndex, 1);
+  const insertAt = toIndex > fromIndex ? toIndex - 1 : toIndex;
+  reorderedKeys.splice(insertAt, 0, movedKey);
+  const next = {};
+  for (const k of reorderedKeys) next[k] = parent[k];
+  pushHistory();
+  state.doc = parentPath.length === 0 ? next : setAt(state.doc, parentPath, next);
+  afterChange();
+}
+
 function selectPath(path) {
   state.selection = path;
   renderTree();
+  renderEditor();
   renderInspector();
+  // Scroll the tree row into view if possible
+  setTimeout(() => {
+    const row = document.querySelector(`.tree-row[data-path='${CSS.escape(pathKey(path))}']`);
+    if (row && typeof row.scrollIntoView === "function") {
+      row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, 0);
+}
+
+/** Build a flat ordered list of currently-visible tree paths, respecting
+ *  expanded/collapsed state and the active search filter. Used for
+ *  keyboard navigation. */
+function getVisibleTreePaths() {
+  const ctx = computeSearchContext(state.search);
+  const out = [];
+  function walk(value, path) {
+    if (ctx.visible && !ctx.visible.has(pathKey(path))) return;
+    out.push(path);
+    const t = typeOf(value);
+    if ((t === "object" || t === "array") && isExpanded(path)) {
+      if (t === "object") for (const k of Object.keys(value)) walk(value[k], [...path, k]);
+      else value.forEach((v, i) => walk(v, [...path, i]));
+    }
+  }
+  walk(state.doc, []);
+  return out;
+}
+
+function handleTreeKeydown(e) {
+  const list = getVisibleTreePaths();
+  if (list.length === 0) return;
+  const cur = state.selection ? pathKey(state.selection) : null;
+  let idx = list.findIndex(p => pathKey(p) === cur);
+  if (idx < 0) idx = 0;
+  const path = list[idx];
+  const value = path.length === 0 ? state.doc : getAt(state.doc, path);
+  const t = typeOf(value);
+  const isContainer = t === "object" || t === "array";
+
+  switch (e.key) {
+    case "ArrowDown": {
+      e.preventDefault();
+      const next = list[Math.min(list.length - 1, idx + 1)];
+      if (next) selectPath(next);
+      break;
+    }
+    case "ArrowUp": {
+      e.preventDefault();
+      const prev = list[Math.max(0, idx - 1)];
+      if (prev) selectPath(prev);
+      break;
+    }
+    case "ArrowRight": {
+      e.preventDefault();
+      if (isContainer && !isExpanded(path)) {
+        state.expanded.add(pathKey(path));
+        renderTree();
+      } else if (isContainer && isExpanded(path)) {
+        // Already expanded — move to first child
+        const next = list[idx + 1];
+        if (next && next.length > path.length) selectPath(next);
+      }
+      break;
+    }
+    case "ArrowLeft": {
+      e.preventDefault();
+      if (isContainer && isExpanded(path)) {
+        state.expanded.delete(pathKey(path));
+        renderTree();
+      } else if (path.length > 0) {
+        // Move to parent
+        selectPath(path.slice(0, -1));
+      }
+      break;
+    }
+    case "Enter": {
+      e.preventDefault();
+      // Move focus to the corresponding key/value input in the editor pane
+      const body = document.getElementById("editor-body");
+      if (!body) return;
+      // The editor will already be showing this node (or its parent for
+      // a leaf). Find the focused row's input and focus it.
+      const focused = body.querySelector(".editor-row.is-focused");
+      if (focused) {
+        const target =
+          focused.querySelector(".key-input:not(.index-label)") ||
+          focused.querySelector(".value-input, textarea, .bool-inline button");
+        if (target && typeof target.focus === "function") target.focus();
+      } else {
+        // Selection points to a container — focus the first row's key
+        const firstRow = body.querySelector(".editor-row");
+        if (firstRow) {
+          const target =
+            firstRow.querySelector(".key-input:not(.index-label)") ||
+            firstRow.querySelector(".value-input, textarea");
+          if (target && typeof target.focus === "function") target.focus();
+        }
+      }
+      break;
+    }
+    case " ":
+    case "Spacebar": {
+      // Toggle expand on space
+      if (!isContainer) return;
+      e.preventDefault();
+      if (isExpanded(path)) state.expanded.delete(pathKey(path));
+      else state.expanded.add(pathKey(path));
+      renderTree();
+      break;
+    }
+    case "Home": {
+      e.preventDefault();
+      selectPath([]);
+      break;
+    }
+    case "End": {
+      e.preventDefault();
+      selectPath(list[list.length - 1]);
+      break;
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RENDERING — EDITOR PANE
+   ══════════════════════════════════════════════════════════════ */
+function renderEditor() {
+  const body = document.getElementById("editor-body");
+  if (!body) return;
+
+  // Skip re-render if the user is actively typing inside the editor
+  const active = document.activeElement;
+  if (active && body.contains(active) && (active.tagName === "TEXTAREA" || (active.tagName === "INPUT" && (active.type === "text" || active.type === "number")))) {
+    return;
+  }
+
+  const scrollTop = body.scrollTop;
+  body.innerHTML = "";
+
+  // Default to root when nothing selected
+  const path = state.selection || [];
+  const value = path.length === 0 ? state.doc : getAt(state.doc, path);
+
+  if (value === undefined) {
+    body.innerHTML = `<div class="editor-empty">Selection no longer exists. Pick a node in Structure.</div>`;
+    return;
+  }
+
+  const t = typeOf(value);
+
+  // If a leaf scalar is selected, show its parent's container view instead
+  // and highlight the row for this leaf. This way the user can edit the
+  // *key* of the selected leaf directly — selecting a leaf in Structure
+  // makes its key immediately editable in the Editor.
+  if (path.length > 0 && (t === "string" || t === "number" || t === "boolean" || t === "null")) {
+    const parentPath = path.slice(0, -1);
+    const parent = parentPath.length === 0 ? state.doc : getAt(state.doc, parentPath);
+    if (parent && typeof parent === "object") {
+      body.appendChild(renderEditorBreadcrumb(parentPath, parent));
+      const shape = document.createElement("div");
+      shape.className = "editor-shape";
+      shape.textContent = describeShape(parent);
+      body.appendChild(shape);
+      const focusKey = path[path.length - 1];
+      renderEditorContainer(body, parentPath, parent, typeOf(parent), focusKey);
+      body.scrollTop = scrollTop;
+      return;
+    }
+  }
+
+  body.appendChild(renderEditorBreadcrumb(path, value));
+
+  const shape = document.createElement("div");
+  shape.className = "editor-shape";
+  shape.textContent = describeShape(value);
+  body.appendChild(shape);
+
+  if (t === "object" || t === "array") {
+    renderEditorContainer(body, path, value, t);
+  } else {
+    renderEditorScalar(body, path, value, t);
+  }
+
+  body.scrollTop = scrollTop;
+}
+
+function renderEditorBreadcrumb(path, value) {
+  const bar = document.createElement("div");
+  bar.className = "editor-breadcrumb";
+
+  // Root crumb
+  const rootCrumb = document.createElement("span");
+  rootCrumb.className = "crumb" + (path.length === 0 ? " current" : "");
+  rootCrumb.textContent = "$";
+  rootCrumb.title = "Root";
+  rootCrumb.addEventListener("click", () => { if (path.length > 0) selectPath([]); });
+  bar.appendChild(rootCrumb);
+
+  for (let i = 0; i < path.length; i++) {
+    const sep = document.createElement("span"); sep.className = "sep"; sep.textContent = "›";
+    bar.appendChild(sep);
+
+    const seg = path[i];
+    const crumb = document.createElement("span");
+    const isLast = i === path.length - 1;
+    crumb.className = "crumb" + (isLast ? " current" : "");
+    crumb.textContent = typeof seg === "number" ? `[${seg}]` : String(seg);
+    if (!isLast) {
+      crumb.addEventListener("click", () => selectPath(path.slice(0, i + 1)));
+    }
+    bar.appendChild(crumb);
+  }
+  return bar;
+}
+
+function renderEditorScalar(body, path, value, t) {
+  const wrap = document.createElement("div");
+  wrap.className = "editor-scalar";
+
+  const typeRow = document.createElement("div");
+  typeRow.className = "value-wrap";
+
+  const pill = document.createElement("button");
+  pill.className = "type-pill type-" + t;
+  pill.textContent = typeLabel(t);
+  pill.title = "Change type";
+  pill.addEventListener("click", (e) => { e.stopPropagation(); showTypeMenu(e.currentTarget, path); });
+  typeRow.appendChild(pill);
+
+  const fieldWrap = document.createElement("div");
+  fieldWrap.style.flex = "1";
+  fieldWrap.style.minWidth = "0";
+
+  const label = document.createElement("label");
+  label.textContent = "Value";
+  fieldWrap.appendChild(label);
+
+  if (t === "null") {
+    const hint = document.createElement("div");
+    hint.className = "null-hint";
+    hint.textContent = "null — change type to assign a value.";
+    fieldWrap.appendChild(hint);
+  } else if (t === "boolean") {
+    const row = document.createElement("div");
+    row.className = "bool-row";
+    for (const [val, label] of [[true, "true"], [false, "false"]]) {
+      const btn = document.createElement("button");
+      btn.className = "bool-btn" + (value === val ? " active" : "");
+      btn.textContent = label;
+      btn.addEventListener("click", () => {
+        pushHistory();
+        state.doc = setAt(state.doc, path, val);
+        afterChange();
+      });
+      row.appendChild(btn);
+    }
+    fieldWrap.appendChild(row);
+  } else if (t === "number") {
+    const inp = document.createElement("input");
+    inp.type = "number";
+    inp.step = "any";
+    inp.value = String(value);
+    inp.addEventListener("input", debounced(() => {
+      const n = Number(inp.value);
+      if (!Number.isFinite(n)) return;
+      pushHistory();
+      state.doc = setAt(state.doc, path, n);
+      afterChange();
+    }, 300));
+    fieldWrap.appendChild(inp);
+  } else {
+    // string — use textarea to allow multi-line
+    const ta = document.createElement("textarea");
+    ta.value = String(value);
+    ta.spellcheck = false;
+    ta.addEventListener("input", debounced(() => {
+      pushHistory();
+      state.doc = setAt(state.doc, path, ta.value);
+      afterChange();
+    }, 300));
+    fieldWrap.appendChild(ta);
+  }
+
+  typeRow.appendChild(fieldWrap);
+  wrap.appendChild(typeRow);
+  body.appendChild(wrap);
+}
+
+function renderEditorContainer(body, path, value, t, focusKey) {
+  const rows = document.createElement("div");
+  rows.className = "editor-rows";
+
+  const keys = t === "array" ? value.map((_, i) => i) : Object.keys(value);
+
+  if (keys.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "editor-empty";
+    empty.textContent = t === "array" ? "Empty array. Use + item below to add." : "Empty object. Use + key below to add.";
+    rows.appendChild(empty);
+  } else {
+    for (const k of keys) {
+      rows.appendChild(renderEditorRow(path, value, k, t, k === focusKey));
+    }
+  }
+  body.appendChild(rows);
+
+  // Sticky add bar
+  const addWrap = document.createElement("div");
+  addWrap.className = "editor-add-wrap";
+  const add = document.createElement("button");
+  add.className = "editor-add";
+  add.textContent = t === "array" ? "+ item" : "+ key";
+  add.addEventListener("click", () => addChild(path));
+  addWrap.appendChild(add);
+  body.appendChild(addWrap);
+
+  // After rendering, focus the targeted row's key input (or value input
+  // for arrays where keys are not editable) and scroll it into view.
+  if (focusKey !== undefined) {
+    setTimeout(() => {
+      const focused = rows.querySelector(".editor-row.is-focused");
+      if (!focused) return;
+      const target = t === "array"
+        ? focused.querySelector(".value-input, textarea, .bool-inline button")
+        : focused.querySelector(".key-input:not(.index-label)");
+      if (target && typeof target.focus === "function") {
+        target.focus();
+        if (typeof target.select === "function") target.select();
+      }
+      if (typeof focused.scrollIntoView === "function") {
+        focused.scrollIntoView({ block: "nearest" });
+      }
+    }, 0);
+  }
+}
+
+function renderEditorRow(parentPath, parent, key, parentType, isFocused) {
+  const childPath = [...parentPath, key];
+  const childValue = parent[key];
+  const ct = typeOf(childValue);
+  const isContainer = ct === "object" || ct === "array";
+
+  const row = document.createElement("div");
+  row.className = "editor-row" + (isContainer ? " is-container" : "") + (isFocused ? " is-focused" : "");
+
+  // Drag handle — used to reorder this row within its parent
+  const handle = document.createElement("span");
+  handle.className = "drag-handle";
+  handle.textContent = "⋮⋮";
+  handle.title = "Drag to reorder";
+  // The whole row is draggable, but only when the handle is grabbed.
+  // We set draggable=true on mousedown over the handle and clear it after drag.
+  handle.addEventListener("mousedown", () => { row.draggable = true; });
+  row.addEventListener("dragstart", (e) => {
+    e.stopPropagation();
+    row.classList.add("dragging");
+    // Carry the source key in the dataTransfer so cross-row handlers can read it
+    try {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", JSON.stringify({ parentPath, key }));
+    } catch {}
+  });
+  row.addEventListener("dragend", () => {
+    row.classList.remove("dragging");
+    row.draggable = false;
+    // Clear any drop indicators left in sibling rows
+    const rowsContainer = row.parentElement;
+    if (rowsContainer) {
+      rowsContainer.querySelectorAll(".editor-row").forEach(r => {
+        r.classList.remove("drop-before", "drop-after");
+      });
+    }
+  });
+  // Allow this row to be a drop target
+  row.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const rect = row.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    row.classList.toggle("drop-before", before);
+    row.classList.toggle("drop-after", !before);
+  });
+  row.addEventListener("dragleave", (e) => {
+    // Only clear when leaving the row entirely (not just transitioning between children)
+    if (!row.contains(e.relatedTarget)) {
+      row.classList.remove("drop-before", "drop-after");
+    }
+  });
+  row.addEventListener("drop", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const before = row.classList.contains("drop-before");
+    row.classList.remove("drop-before", "drop-after");
+    let payload;
+    try { payload = JSON.parse(e.dataTransfer.getData("text/plain")); } catch { return; }
+    if (!payload || pathKey(payload.parentPath) !== pathKey(parentPath)) return;
+    const keys = parentType === "array" ? parent.map((_,i) => i) : Object.keys(parent);
+    const targetIdx = keys.indexOf(parentType === "array" ? key : String(key));
+    const insertAt = before ? targetIdx : targetIdx + 1;
+    moveChild(parentPath, payload.key, insertAt);
+  });
+  row.appendChild(handle);
+
+  // Clicking anywhere on a row (outside its editable controls) selects the
+  // child path so the Inspector reflects this row's rule. Container rows
+  // additionally navigate in (selectPath on a container makes the Editor
+  // show that container's contents); scalar rows just become the focused
+  // row of the parent's view.
+  row.addEventListener("click", (e) => {
+    if (e.target.closest("input, textarea, button, select, .type-pill, .drag-handle, .row-delete")) return;
+    selectPath(childPath);
+  });
+
+  // Type pill — placed before the key, matching the Structure pane convention
+  const pill = document.createElement("button");
+  pill.className = "type-pill type-" + ct;
+  pill.textContent = typeLabel(ct);
+  pill.title = "Change type";
+  pill.addEventListener("click", (e) => { e.stopPropagation(); showTypeMenu(e.currentTarget, childPath); });
+  row.appendChild(pill);
+
+  // Key input / index label
+  const keyInput = document.createElement("input");
+  keyInput.type = "text";
+  keyInput.className = "key-input" + (parentType === "array" ? " index-label" : "");
+  keyInput.value = parentType === "array" ? `[${key}]` : String(key);
+  keyInput.spellcheck = false;
+  // Focusing the key input means the user is interested in this row —
+  // sync the selection so the Inspector shows this row's rule.
+  // (renderEditor skips re-rendering while a text input is focused, so
+  // this won't destroy the input mid-edit.)
+  keyInput.addEventListener("focus", () => {
+    if (!state.selection || pathKey(state.selection) !== pathKey(childPath)) {
+      selectPath(childPath);
+    }
+  });
+  if (parentType === "object") {
+    keyInput.addEventListener("change", () => {
+      const newKey = keyInput.value.trim();
+      if (!newKey || newKey === key) { keyInput.value = String(key); return; }
+      if (Object.keys(parent).includes(newKey)) {
+        keyInput.value = String(key);
+        flashStatus(`Key "${newKey}" already exists`, true);
+        return;
+      }
+      pushHistory();
+      state.doc = renameKeyAt(state.doc, parentPath, key, newKey);
+      afterChange();
+    });
+  }
+  row.appendChild(keyInput);
+
+  // Value area
+  const valueArea = document.createElement("div");
+  valueArea.className = "value-area";
+
+  if (isContainer) {
+    const summary = document.createElement("span");
+    summary.className = "container-summary";
+    summary.textContent = ct === "array"
+      ? `[] ${childValue.length} item${childValue.length === 1 ? "" : "s"}`
+      : `{} ${Object.keys(childValue).length} key${Object.keys(childValue).length === 1 ? "" : "s"}`;
+    valueArea.appendChild(summary);
+
+    const open = document.createElement("button");
+    open.className = "open-btn";
+    open.textContent = "Open →";
+    open.addEventListener("click", (e) => { e.stopPropagation(); selectPath(childPath); });
+    valueArea.appendChild(open);
+  } else if (ct === "null") {
+    const span = document.createElement("span");
+    span.className = "container-summary";
+    span.textContent = "null";
+    valueArea.appendChild(span);
+  } else if (ct === "boolean") {
+    const wrap = document.createElement("div");
+    wrap.className = "bool-inline";
+    for (const [val, lbl] of [[true, "true"], [false, "false"]]) {
+      const b = document.createElement("button");
+      b.textContent = lbl;
+      if (childValue === val) b.classList.add("active");
+      b.addEventListener("click", () => {
+        pushHistory();
+        state.doc = setAt(state.doc, childPath, val);
+        afterChange();
+      });
+      wrap.appendChild(b);
+    }
+    valueArea.appendChild(wrap);
+  } else if (ct === "string") {
+    const ta = document.createElement("textarea");
+    ta.className = "value-input value-textarea";
+    ta.value = String(childValue);
+    ta.spellcheck = false;
+    ta.rows = 1;
+    ta.cols = 30;
+    ta.addEventListener("focus", () => {
+      if (!state.selection || pathKey(state.selection) !== pathKey(childPath)) {
+        selectPath(childPath);
+      }
+    });
+    // Run autosize once the textarea is attached (scrollHeight only valid then),
+    // then set up a ResizeObserver so dragging the textarea wider also
+    // expands the Editor pane.
+    setTimeout(() => {
+      autosizeTextarea(ta);
+      observeTextareaResize(ta);
+    }, 0);
+    ta.addEventListener("input", () => {
+      autosizeTextarea(ta);
+    });
+    ta.addEventListener("input", debounced(() => {
+      if (ta.value === childValue) return;
+      pushHistory();
+      state.doc = setAt(state.doc, childPath, ta.value);
+      afterChange();
+    }, 300));
+    valueArea.appendChild(ta);
+  } else {
+    const inp = document.createElement("input");
+    inp.className = "value-input";
+    inp.type = "number";
+    inp.step = "any";
+    inp.value = String(childValue);
+    inp.spellcheck = false;
+    inp.addEventListener("focus", () => {
+      if (!state.selection || pathKey(state.selection) !== pathKey(childPath)) {
+        selectPath(childPath);
+      }
+    });
+    inp.addEventListener("input", debounced(() => {
+      const n = Number(inp.value);
+      if (!Number.isFinite(n)) return;
+      if (n === childValue) return;
+      pushHistory();
+      state.doc = setAt(state.doc, childPath, n);
+      afterChange();
+    }, 300));
+    valueArea.appendChild(inp);
+  }
+  row.appendChild(valueArea);
+
+  // Delete
+  const del = document.createElement("button");
+  del.className = "row-delete";
+  del.innerHTML = "×";
+  del.title = "Delete";
+  del.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const nonEmpty = childValue && typeof childValue === "object" &&
+      ((Array.isArray(childValue) && childValue.length > 0) || (!Array.isArray(childValue) && Object.keys(childValue).length > 0));
+    const keyLabel = parentType === "array" ? `[${key}]` : String(key);
+    if (nonEmpty && !confirm(`Delete ${keyLabel}? It contains ${Array.isArray(childValue) ? childValue.length + " items" : Object.keys(childValue).length + " keys"}. (You can undo.)`)) return;
+    deleteNode(childPath);
+  });
+  row.appendChild(del);
+
+  return row;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -2227,16 +3811,24 @@ function showTypeMenu(anchor, path) {
   menu.style.top = (rect.bottom + 4) + "px";
   menu.style.left = rect.left + "px";
   const types = [
-    ["object", "{}  Object"],
-    ["array", "[]  Array"],
-    ["string", "\"\"  String"],
-    ["number", "#   Number"],
-    ["boolean", "✓   Boolean"],
-    ["null", "∅   Null"],
+    ["object",  "{}  Object",  "An unordered collection of named key/value pairs."],
+    ["array",   "[]  Array",   "An ordered list of values. Items can be of mixed types."],
+    ["string",  "\"\"  String", "Text. Single- or multi-line."],
+    ["number",  "#   Number",  "Integer or decimal. JSON has only one numeric type."],
+    ["boolean", "✓   Boolean", "true or false."],
+    ["null",    "∅   Null",    "Explicitly empty / no value."],
   ];
-  for (const [t, label] of types) {
+  for (const [t, label, desc] of types) {
     const b = document.createElement("button");
-    b.textContent = label;
+    b.title = desc;
+    const lab = document.createElement("span");
+    lab.className = "type-label";
+    lab.textContent = label;
+    const sub = document.createElement("span");
+    sub.className = "type-desc";
+    sub.textContent = desc;
+    b.appendChild(lab);
+    b.appendChild(sub);
     b.addEventListener("click", () => {
       changeType(path, t);
       closeMenus();
@@ -2248,15 +3840,170 @@ function showTypeMenu(anchor, path) {
 }
 
 function closeMenus() {
-  document.querySelectorAll(".type-menu").forEach(m => m.remove());
+  document.querySelectorAll(".type-menu, .tree-context-menu").forEach(m => m.remove());
+}
+
+/** Format a JSON path as a friendly dot/bracket string, e.g. runs[0][1].persona */
+function formatJsonPath(path) {
+  if (path.length === 0) return "$";
+  let out = "$";
+  for (const seg of path) {
+    if (typeof seg === "number") out += `[${seg}]`;
+    else if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(seg)) out += `.${seg}`;
+    else out += `[${JSON.stringify(seg)}]`;
+  }
+  return out;
+}
+
+/** Format the rule pattern path the user would set a rule on (array indices
+ *  become *). E.g. runs[0][1].persona → runs.*.*.persona */
+function formatPatternPath(path) {
+  if (path.length === 0) return "$";
+  return path.map(p => typeof p === "number" ? "*" : p).join(".");
+}
+
+async function copyToClipboard(text) {
+  try {
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+  // Fallback: temporary textarea + execCommand("copy")
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function showTreeContextMenu(x, y, path, value) {
+  closeMenus();
+  const menu = document.createElement("div");
+  menu.className = "tree-context-menu";
+  menu.style.top = y + "px";
+  menu.style.left = x + "px";
+
+  const jsonPath = formatJsonPath(path);
+  const patternPathStr = formatPatternPath(path);
+
+  // Path preview at the top
+  const preview = document.createElement("div");
+  preview.className = "menu-preview";
+  preview.textContent = jsonPath;
+  preview.title = jsonPath;
+  menu.appendChild(preview);
+
+  const sep = document.createElement("div"); sep.className = "menu-sep";
+  menu.appendChild(sep);
+
+  const items = [
+    {
+      label: "Copy path",
+      sub: jsonPath,
+      action: async () => {
+        const ok = await copyToClipboard(jsonPath);
+        flashStatus(ok ? `Copied ${jsonPath}` : "Copy failed", !ok);
+      },
+    },
+    {
+      label: "Copy pattern path",
+      sub: patternPathStr + "  (use as rule key)",
+      action: async () => {
+        const ok = await copyToClipboard(patternPathStr);
+        flashStatus(ok ? `Copied ${patternPathStr}` : "Copy failed", !ok);
+      },
+    },
+    {
+      label: "Copy value as JSON",
+      sub: previewValueForMenu(value),
+      action: async () => {
+        const json = JSON.stringify(value, null, 2);
+        const ok = await copyToClipboard(json);
+        flashStatus(ok ? `Copied value (${json.length} chars)` : "Copy failed", !ok);
+      },
+    },
+  ];
+
+  for (const item of items) {
+    const b = document.createElement("button");
+    const lab = document.createElement("span");
+    lab.className = "menu-label";
+    lab.textContent = item.label;
+    const sub2 = document.createElement("span");
+    sub2.className = "menu-sub";
+    sub2.textContent = item.sub;
+    b.appendChild(lab);
+    b.appendChild(sub2);
+    b.addEventListener("click", () => { item.action(); closeMenus(); });
+    menu.appendChild(b);
+  }
+
+  document.body.appendChild(menu);
+
+  // Reposition if the menu would overflow the viewport
+  const rect = menu.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  if (rect.right > vw) menu.style.left = (vw - rect.width - 8) + "px";
+  if (rect.bottom > vh) menu.style.top = (vh - rect.height - 8) + "px";
+
+  setTimeout(() => document.addEventListener("click", closeMenus, { once: true }), 0);
+}
+
+function previewValueForMenu(value) {
+  const t = typeOf(value);
+  if (t === "string") {
+    const s = value.length > 40 ? value.slice(0, 40) + "…" : value;
+    return `"${s}"`;
+  }
+  if (t === "object") return `{} ${Object.keys(value).length} key${Object.keys(value).length === 1 ? "" : "s"}`;
+  if (t === "array") return `[] ${value.length} item${value.length === 1 ? "" : "s"}`;
+  if (t === "null") return "null";
+  return String(value);
 }
 
 function changeType(path, type) {
   const cur = path.length === 0 ? state.doc : getAt(state.doc, path);
+  const fromType = typeOf(cur);
+  if (fromType === type) return;
+
+  // Warn before destructive type changes.
+  // - Object → Array: keys discarded (values become items)
+  // - Object/Array → scalar (string/number/boolean/null): all contents lost
+  // - Scalar → Scalar: never destructive in a way the user couldn't undo
+  // - Array → Object: produces keys "0", "1", ... — non-destructive
+  let warning = null;
+  if (fromType === "object") {
+    const keys = Object.keys(cur);
+    if (type === "array" && keys.length > 0) {
+      warning = `Convert this object to an array?\n\nThe ${keys.length} key${keys.length === 1 ? "" : "s"} (${shortKeyList(keys)}) will be discarded — only the values become items.`;
+    } else if ((type === "string" || type === "number" || type === "boolean" || type === "null") && keys.length > 0) {
+      warning = `Convert this object to ${type}?\n\nAll ${keys.length} key${keys.length === 1 ? "" : "s"} (${shortKeyList(keys)}) will be deleted.`;
+    }
+  } else if (fromType === "array") {
+    if ((type === "string" || type === "number" || type === "boolean" || type === "null") && cur.length > 0) {
+      warning = `Convert this array to ${type}?\n\nAll ${cur.length} item${cur.length === 1 ? "" : "s"} will be deleted.`;
+    }
+  }
+  if (warning && !confirm(warning + "\n\n(You can undo if needed.)")) return;
+
   const next = coerceTo(cur, type);
   pushHistory();
   state.doc = path.length === 0 ? next : setAt(state.doc, path, next);
   afterChange();
+}
+
+function shortKeyList(keys) {
+  if (keys.length <= 4) return keys.join(", ");
+  return keys.slice(0, 3).join(", ") + `, … (+${keys.length - 3} more)`;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -2842,7 +4589,7 @@ function renderRuleInspector(body, path, value) {
   valRow.appendChild(valSel);
   fmtSection.appendChild(valRow);
 
-  // Decimal mark — show whenever this subtree may contain numbers
+  // Decimal mark + decimals (rounding) — show whenever this subtree may contain numbers
   if (subtreeHasNumbers(value)) {
     const decRow = document.createElement("div"); decRow.className = "insp-row";
     decRow.innerHTML = `<label>Decimal mark (numbers)</label>`;
@@ -2855,6 +4602,51 @@ function renderRuleInspector(body, path, value) {
     decSel.addEventListener("change", () => setRule(path, { decimalMark: decSel.value }));
     decRow.appendChild(decSel);
     fmtSection.appendChild(decRow);
+
+    const roundRow = document.createElement("div"); roundRow.className = "insp-row";
+    roundRow.innerHTML = `<label>Decimal places</label>`;
+    const roundSel = document.createElement("select"); roundSel.className = "insp-select";
+    const roundOpts = [
+      ["", "— (no rounding)"],
+      ["0", "0  (1)"],
+      ["1", "1  (1.2)"],
+      ["2", "2  (1.23)"],
+      ["3", "3  (1.234)"],
+      ["4", "4  (1.2345)"],
+      ["6", "6  (1.234567)"],
+    ];
+    for (const [v, l] of roundOpts) {
+      const o = document.createElement("option"); o.value = v; o.textContent = l;
+      const cur = rule.decimals === undefined ? "" : String(rule.decimals);
+      if (cur === v) o.selected = true;
+      roundSel.appendChild(o);
+    }
+    roundSel.addEventListener("change", () => setRule(path, { decimals: roundSel.value }));
+    roundRow.appendChild(roundSel);
+    fmtSection.appendChild(roundRow);
+  }
+
+  // Date format — applies to ISO 8601 string values
+  if (subtreeHasISODates(value)) {
+    const dateRow = document.createElement("div"); dateRow.className = "insp-row";
+    dateRow.innerHTML = `<label>Date format (ISO strings)</label>`;
+    const dateSel = document.createElement("select"); dateSel.className = "insp-select";
+    const dateOpts = [
+      ["none",     "— (raw, e.g. 2026-03-05T12:40)"],
+      ["iso-date", "ISO date  (2026-03-05)"],
+      ["short",    "Short  (Mar 5, 2026)"],
+      ["medium",   "Medium  (March 5, 2026)"],
+      ["time",     "Time only  (12:40 PM)"],
+      ["datetime", "Date + time  (Mar 5, 2026, 12:40 PM)"],
+    ];
+    for (const [v, l] of dateOpts) {
+      const o = document.createElement("option"); o.value = v; o.textContent = l;
+      if ((rule.dateFormat || "none") === v) o.selected = true;
+      dateSel.appendChild(o);
+    }
+    dateSel.addEventListener("change", () => setRule(path, { dateFormat: dateSel.value }));
+    dateRow.appendChild(dateSel);
+    fmtSection.appendChild(dateRow);
   }
 
   fmtSection.insertAdjacentHTML("beforeend", `<div class="insp-help">Applies when this node renders as <code>Key: value</code> leaves (inside objects or bullet lists).</div>`);
@@ -3051,6 +4843,11 @@ function saveJson() {
   const name = inferDocName() + ".json";
   triggerDownload(blob, name);
   state.dirty = false;
+  // If the doc had no name yet, derive one from inferDocName so the tab
+  // bar shows the same label the file was saved with.
+  if (!state.docName) state.docName = name.replace(/\.json$/i, "");
+  updateDocName();
+  syncTabUI();
   flashStatus(`Saved ${name}`);
 }
 
@@ -3108,22 +4905,66 @@ document.getElementById("file-input").addEventListener("change", (e) => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    try {
-      const parsed = JSON.parse(reader.result);
-      pushHistory();
-      state.doc = parsed;
-      state.docName = file.name.replace(/\.json$/i, "");
-      state.selection = null;
-      state.expanded = new Set([pathKey([])]);
-      afterChange();
-      flashStatus(`Loaded ${file.name}`);
-    } catch (err) {
-      flashStatus(`Invalid JSON: ${err.message}`, true);
+    const result = loadJsonText(reader.result, file.name);
+    if (!result.ok) {
+      showErrorBanner(`Couldn't open ${file.name}`, result.detail);
+      return;
     }
+    // If current tab is fresh and empty, reuse it. Otherwise spawn a new tab.
+    if (!isActiveTabFresh()) newTab();
+    state.history = { past: [], future: [] };
+    state.doc = result.value;
+    state.docName = file.name.replace(/\.json$/i, "");
+    state.rules = {};
+    state.splits = {};
+    state.annotations = {};
+    state.docFrontMatter = "";
+    state.selection = null;
+    state.expanded = new Set([pathKey([])]);
+    state.search = "";
+    state.dirty = false;
+    syncSearchInput();
+    afterChange();
+    flashStatus(`Loaded ${file.name}`);
+  };
+  reader.onerror = () => {
+    showErrorBanner(`Couldn't read ${file.name}`, "The file could not be read by the browser.");
   };
   reader.readAsText(file);
   e.target.value = "";
 });
+
+/** Validate JSON text and produce a friendly error message.
+ *  Catches common cases: empty files, files that look like other formats,
+ *  and parse errors with a hint at the offending position. */
+function loadJsonText(text, filename) {
+  if (text == null || text === "") {
+    return { ok: false, detail: "The file is empty." };
+  }
+  const trimmed = String(text).trim();
+  if (trimmed === "") {
+    return { ok: false, detail: "The file contains only whitespace." };
+  }
+  // Sniff the first few characters for non-JSON formats. Run these
+  // before the parse so we can give a more specific message.
+  if (/^<\?xml|^<!DOCTYPE|^<[a-zA-Z]/.test(trimmed)) {
+    return { ok: false, detail: "This looks like XML or HTML, not JSON." };
+  }
+  if (/^---\s*$/m.test(trimmed.split("\n")[0]) || /^[a-zA-Z][a-zA-Z0-9_-]*\s*:\s/m.test(trimmed)) {
+    return { ok: false, detail: "This looks like YAML, not JSON." };
+  }
+  if (/^[^\{\[\"\-0-9tfn]/.test(trimmed)) {
+    // Doesn't start with anything JSON allows
+    return { ok: false, detail: "This doesn't look like JSON. JSON values start with one of: { [ \" or a number/true/false/null." };
+  }
+  try {
+    const parsed = JSON.parse(text);
+    return { ok: true, value: parsed };
+  } catch (err) {
+    const msg = err && err.message ? err.message : "Couldn't parse as JSON.";
+    return { ok: false, detail: `Parse error: ${msg}` };
+  }
+}
 
 /* ══════════════════════════════════════════════════════════════
    AUTOSAVE
@@ -3140,13 +4981,21 @@ function scheduleAutosave() {
 
 function doAutosave() {
   try {
+    // Snapshot the live state into the active tab first
+    captureActiveTab();
     const payload = {
-      doc: state.doc,
-      docName: state.docName,
-      rules: state.rules,
-      splits: state.splits,
-      annotations: state.annotations,
-      docFrontMatter: state.docFrontMatter,
+      tabs: state.tabs.map(t => ({
+        id: t.id,
+        doc: t.doc,
+        docName: t.docName,
+        rules: t.rules,
+        splits: t.splits,
+        annotations: t.annotations,
+        docFrontMatter: t.docFrontMatter,
+        dirty: t.dirty,
+        // selection/expanded/search/history are session state — not persisted
+      })),
+      activeTabId: state.activeTabId,
       savedAt: Date.now(),
     };
     localStorage.setItem(LS_KEY, JSON.stringify(payload));
@@ -3161,7 +5010,25 @@ function loadDraft() {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const data = JSON.parse(raw);
+    // Backward-compat: old single-doc format → wrap into one tab.
+    if (!data.tabs && data.doc !== undefined) {
+      return {
+        tabs: [{
+          id: "tab-restored",
+          doc: data.doc,
+          docName: data.docName || null,
+          rules: data.rules || {},
+          splits: data.splits || {},
+          annotations: data.annotations || {},
+          docFrontMatter: data.docFrontMatter || "",
+          dirty: true,
+        }],
+        activeTabId: "tab-restored",
+        savedAt: data.savedAt,
+      };
+    }
+    return data;
   } catch { return null; }
 }
 
@@ -3341,6 +5208,28 @@ function flashStatus(text, isError = false) {
   setTimeout(() => { if (state.lastSaved) setStatus(`Autosaved ${relTime(state.lastSaved)}`); }, 2500);
 }
 
+/** Show a prominent dismissable banner — used for things the user really
+ *  needs to notice, like a failed file open. Auto-dismisses after a delay
+ *  unless dismissed manually.  Distinct from the more subtle status bar. */
+function showErrorBanner(title, detail) {
+  // Remove any existing error banner first
+  document.querySelectorAll(".banner.error-banner").forEach(b => b.remove());
+  const banner = document.createElement("div");
+  banner.className = "banner error-banner";
+  banner.innerHTML = `
+    <span class="banner-icon">⚠</span>
+    <span class="banner-text">
+      <strong>${escapeHtmlAttr(title)}</strong>
+      ${detail ? `<br><span class="banner-detail">${escapeHtmlAttr(detail)}</span>` : ""}
+    </span>
+    <button class="banner-close" title="Dismiss">×</button>
+  `;
+  document.body.appendChild(banner);
+  const dismiss = () => banner.remove();
+  banner.querySelector(".banner-close").addEventListener("click", dismiss);
+  setTimeout(dismiss, 8000);
+}
+
 function updateDocStats() {
   let nodes = 0;
   function count(v) { nodes++; if (v && typeof v === "object") { if (Array.isArray(v)) v.forEach(count); else Object.values(v).forEach(count); } }
@@ -3356,29 +5245,38 @@ function updateDocStats() {
 function afterChange() {
   renderTree();
   renderOutput();
-  // Skip inspector re-render while the user is typing in it — otherwise
-  // debounced autosave would destroy the textarea/input they're editing.
+  // Skip re-renders of panes containing focused text inputs/textareas.
   const active = document.activeElement;
-  const inInspector = active && document.getElementById("pane-inspector")?.contains(active);
   const isTextInput = active && (active.tagName === "TEXTAREA" ||
     (active.tagName === "INPUT" && (active.type === "text" || active.type === "number")));
+  const inInspector = active && document.getElementById("pane-inspector")?.contains(active);
+  const inEditor = active && document.getElementById("pane-editor")?.contains(active);
+  if (!(inEditor && isTextInput)) renderEditor();
   if (!(inInspector && isTextInput)) renderInspector();
   updateDocStats();
   updateDocName();
   updateUndoButtons();
+  syncTabUI();
   scheduleAutosave();
 }
 
 function updateDocName() {
   const el = document.getElementById("doc-name");
   if (!el) return;
-  if (state.docName) {
-    el.textContent = state.docName + ".json";
-    el.classList.remove("untitled");
-  } else {
-    el.textContent = "untitled";
-    el.classList.add("untitled");
-  }
+  const textEl = el.querySelector(".doc-name-text");
+  const displayName = state.docName ? state.docName + ".json" : "untitled";
+  if (textEl) textEl.textContent = displayName;
+  el.classList.toggle("untitled", !state.docName);
+  el.classList.toggle("dirty", !!state.dirty);
+
+  // Also update the browser tab title so unsaved state is visible there
+  const base = "Loom";
+  const prefix = state.dirty ? "● " : "";
+  document.title = `${prefix}${displayName} — ${base}`;
+
+  // Save JSON button gets an accent outline when dirty
+  const saveBtn = document.getElementById("btn-save-json");
+  if (saveBtn) saveBtn.classList.toggle("has-changes", !!state.dirty);
 }
 
 function updateAll() { afterChange(); }
@@ -3387,18 +5285,18 @@ function updateAll() { afterChange(); }
    PANE RESIZE & COLLAPSE
    ══════════════════════════════════════════════════════════════ */
 function setupPaneResize() {
-  const panes = document.getElementById("panes");
-  function makeDragger(id, which) {
-    const el = document.getElementById(id);
+  // direction: +1 means drag right = grow pane; -1 means drag right = shrink pane
+  function makeDragger(dividerId, whichPane, direction) {
+    const el = document.getElementById(dividerId);
     el.addEventListener("mousedown", (e) => {
       e.preventDefault();
       el.classList.add("dragging");
       const startX = e.clientX;
-      const startW = state.panes[which].w;
+      const startW = state.panes[whichPane].w;
       const onMove = (ev) => {
-        const dx = ev.clientX - startX;
-        const w = Math.max(180, Math.min(560, which === "insp" ? startW - dx : startW + dx));
-        state.panes[which].w = w;
+        const dx = (ev.clientX - startX) * direction;
+        const w = Math.max(180, Math.min(640, startW + dx));
+        state.panes[whichPane].w = w;
         applyPaneWidths();
       };
       const onUp = () => {
@@ -3410,21 +5308,57 @@ function setupPaneResize() {
       document.addEventListener("mouseup", onUp);
     });
   }
-  makeDragger("div-tree", "tree");
-  makeDragger("div-insp", "insp");
+  // Dragging div-tree right grows the tree pane; div-editor right grows editor;
+  // div-output right shrinks inspector.
+  makeDragger("div-tree",   "tree",      +1);
+  makeDragger("div-editor", "editor",    +1);
+  makeDragger("div-output", "inspector", -1);
   applyPaneWidths();
 }
 
 function applyPaneWidths() {
   const panes = document.getElementById("panes");
-  panes.style.setProperty("--pane-tree-w", state.panes.tree.w + "px");
-  panes.style.setProperty("--pane-insp-w", state.panes.insp.w + "px");
-  panes.classList.toggle("tree-collapsed", state.panes.tree.collapsed);
-  panes.classList.toggle("insp-collapsed", state.panes.insp.collapsed);
-  document.getElementById("pane-tree").classList.toggle("collapsed", state.panes.tree.collapsed);
-  document.getElementById("pane-inspector").classList.toggle("collapsed", state.panes.insp.collapsed);
-  document.getElementById("collapse-tree").textContent = state.panes.tree.collapsed ? "⟩" : "⟨";
-  document.getElementById("collapse-insp").textContent = state.panes.insp.collapsed ? "⟨" : "⟩";
+
+  // Per-pane column width: either the user's px width or 28px if collapsed.
+  // Output gets 1fr unless collapsed — in that case, hand the 1fr role to
+  // whichever expanded pane makes the most sense so the UI still fills.
+  const p = state.panes;
+  const tree = p.tree.collapsed ? "28px" : p.tree.w + "px";
+  const editor = p.editor.collapsed ? "28px" : p.editor.w + "px";
+  const output = p.output.collapsed ? "28px" : "1fr";
+  const insp = p.inspector.collapsed ? "28px" : p.inspector.w + "px";
+
+  // Build the grid template. Normally: [tree] [div] [editor] [div] [output] [div] [inspector]
+  let cols = [tree, "4px", editor, "4px", output, "4px", insp];
+
+  // If output is collapsed, reassign the 1fr to the next available expanded pane.
+  if (p.output.collapsed) {
+    if (!p.inspector.collapsed) cols[6] = "1fr";
+    else if (!p.editor.collapsed) cols[2] = "1fr";
+    else if (!p.tree.collapsed) cols[0] = "1fr";
+  }
+  panes.style.gridTemplateColumns = cols.join(" ");
+
+  // Toggle the .collapsed class on each pane element
+  document.getElementById("pane-tree").classList.toggle("collapsed", p.tree.collapsed);
+  document.getElementById("pane-editor").classList.toggle("collapsed", p.editor.collapsed);
+  document.getElementById("pane-output").classList.toggle("collapsed", p.output.collapsed);
+  document.getElementById("pane-inspector").classList.toggle("collapsed", p.inspector.collapsed);
+
+  // Update chevron glyphs to point the right way
+  document.getElementById("collapse-tree").textContent         = p.tree.collapsed      ? "⟩" : "⟨";
+  document.getElementById("collapse-editor-left").textContent  = p.editor.collapsed    ? "⟩" : "⟨";
+  document.getElementById("collapse-output").textContent       = p.output.collapsed    ? "⟨" : "⟩";
+  document.getElementById("collapse-insp").textContent         = p.inspector.collapsed ? "⟨" : "⟩";
+
+  // Disable dividers adjacent to a collapsed pane (dragging them would
+  // be meaningless).
+  document.getElementById("div-tree").classList.toggle("disabled",
+    p.tree.collapsed || p.editor.collapsed);
+  document.getElementById("div-editor").classList.toggle("disabled",
+    p.editor.collapsed || p.output.collapsed);
+  document.getElementById("div-output").classList.toggle("disabled",
+    p.output.collapsed || p.inspector.collapsed);
 }
 
 function togglePane(which) {
@@ -3437,17 +5371,8 @@ function togglePane(which) {
    ══════════════════════════════════════════════════════════════ */
 function wireUp() {
   document.getElementById("btn-new").addEventListener("click", () => {
-    if (state.dirty && !confirm("Discard current document?")) return;
-    pushHistory();
-    state.doc = { title: "New document" };
-    state.docName = null;
-    state.rules = {};
-    state.splits = {};
-    state.annotations = {};
-    state.docFrontMatter = "";
-    state.selection = null;
-    state.expanded = new Set([pathKey([])]);
-    afterChange();
+    // Always opens in a new tab; existing work is preserved
+    newTab();
   });
   document.getElementById("btn-open").addEventListener("click", openFile);
   document.getElementById("btn-save-json").addEventListener("click", saveJson);
@@ -3460,7 +5385,25 @@ function wireUp() {
   document.getElementById("btn-redo-tb").addEventListener("click", redo);
 
   document.getElementById("collapse-tree").addEventListener("click", () => togglePane("tree"));
-  document.getElementById("collapse-insp").addEventListener("click", () => togglePane("insp"));
+  document.getElementById("collapse-editor-left").addEventListener("click", () => togglePane("editor"));
+  document.getElementById("collapse-output").addEventListener("click", () => togglePane("output"));
+  document.getElementById("collapse-insp").addEventListener("click", () => togglePane("inspector"));
+
+  // Click anywhere on a collapsed pane (not just on the chevron) to expand it.
+  for (const [paneId, key] of [
+    ["pane-tree", "tree"],
+    ["pane-editor", "editor"],
+    ["pane-output", "output"],
+    ["pane-inspector", "inspector"],
+  ]) {
+    document.getElementById(paneId).addEventListener("click", (e) => {
+      if (!state.panes[key].collapsed) return;
+      // Avoid double-toggle when the chevron itself is the click target;
+      // its own handler will run first and we should not undo it.
+      if (e.target.classList && e.target.classList.contains("pane-collapse")) return;
+      togglePane(key);
+    });
+  }
 
   document.getElementById("output-tabs").addEventListener("click", (e) => {
     if (!e.target.dataset.tab) return;
@@ -3483,6 +5426,41 @@ function wireUp() {
 
   document.getElementById("btn-help").addEventListener("click", showHelp);
 
+  // Tree search
+  const searchInput = document.getElementById("tree-search");
+  const searchClear = document.getElementById("tree-search-clear");
+  searchInput.addEventListener("input", debounced(() => {
+    state.search = searchInput.value;
+    renderTree();
+  }, 150));
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      searchInput.value = "";
+      state.search = "";
+      renderTree();
+      e.stopPropagation();
+    }
+    if (e.key === "ArrowDown") {
+      // Move focus to tree-body so keyboard nav can take over
+      e.preventDefault();
+      document.getElementById("tree-body").focus();
+    }
+  });
+  searchClear.addEventListener("click", () => {
+    searchInput.value = "";
+    state.search = "";
+    renderTree();
+    searchInput.focus();
+  });
+
+  // Tree keyboard navigation
+  const treeBody = document.getElementById("tree-body");
+  treeBody.addEventListener("keydown", (e) => {
+    // Only handle when focus is on tree-body itself (not a child input)
+    if (document.activeElement !== treeBody) return;
+    handleTreeKeydown(e);
+  });
+
   // Keyboard
   document.addEventListener("keydown", (e) => {
     const meta = e.ctrlKey || e.metaKey;
@@ -3500,15 +5478,29 @@ function wireUp() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      try {
-        pushHistory();
-        state.doc = JSON.parse(reader.result);
-        state.docName = file.name.replace(/\.json$/i, "");
-        state.selection = null;
-        state.expanded = new Set([pathKey([])]);
-        afterChange();
-        flashStatus(`Loaded ${file.name}`);
-      } catch (err) { flashStatus(`Invalid JSON: ${err.message}`, true); }
+      const result = loadJsonText(reader.result, file.name);
+      if (!result.ok) {
+        showErrorBanner(`Couldn't open ${file.name}`, result.detail);
+        return;
+      }
+      if (!isActiveTabFresh()) newTab();
+      state.history = { past: [], future: [] };
+      state.doc = result.value;
+      state.docName = file.name.replace(/\.json$/i, "");
+      state.rules = {};
+      state.splits = {};
+      state.annotations = {};
+      state.docFrontMatter = "";
+      state.selection = null;
+      state.expanded = new Set([pathKey([])]);
+      state.search = "";
+      state.dirty = false;
+      syncSearchInput();
+      afterChange();
+      flashStatus(`Loaded ${file.name}`);
+    };
+    reader.onerror = () => {
+      showErrorBanner(`Couldn't read ${file.name}`, "The file could not be read by the browser.");
     };
     reader.readAsText(file);
   });
@@ -3529,6 +5521,7 @@ function showHelp() {
       <p><strong>Export</strong>: MD downloads a <code>.md</code> file (or <code>.zip</code> if splits are active). XLSX produces one sheet per table rule or split point.</p>
       <p><strong>Autosave</strong>: your draft is stored in the browser and restored next time.</p>
       <p style="font-size:11px;color:var(--muted);">Shortcuts: <kbd>Ctrl/⌘+Z</kbd> undo · <kbd>Ctrl/⌘+Shift+Z</kbd> redo · <kbd>Ctrl/⌘+S</kbd> save JSON · <kbd>Ctrl/⌘+O</kbd> open</p>
+      <p style="font-size:11px;color:var(--muted);">Tree: <kbd>↑</kbd>/<kbd>↓</kbd> move · <kbd>←</kbd>/<kbd>→</kbd> collapse/expand · <kbd>Space</kbd> toggle · <kbd>Enter</kbd> edit in Editor · <kbd>Home</kbd>/<kbd>End</kbd> jump · right-click for Copy path/value</p>
       <p style="font-size:11px;color:var(--muted);margin-top:14px;border-top:1px solid var(--hairline);padding-top:10px;">
         Source, issues, and the latest release: <a href="https://github.com/jmkorhonen/json_loom" target="_blank" rel="noopener">github.com/jmkorhonen/json_loom</a>
       </p>
@@ -3543,24 +5536,40 @@ function showHelp() {
 }
 
 function showRestoreBanner(draft) {
+  const tabCount = Array.isArray(draft.tabs) ? draft.tabs.length : 1;
+  const tabLabel = tabCount === 1 ? "1 tab" : `${tabCount} tabs`;
   const banner = document.createElement("div");
   banner.className = "banner accent";
   banner.innerHTML = `
-    <span>Draft found from ${relTime(draft.savedAt)}. Restore it?</span>
+    <span>Draft found from ${relTime(draft.savedAt)} (${tabLabel}). Restore it?</span>
     <button class="insp-btn primary" id="ban-restore">Restore</button>
     <button class="insp-btn" id="ban-discard">Discard</button>
   `;
   document.body.appendChild(banner);
   banner.querySelector("#ban-restore").addEventListener("click", () => {
-    state.doc = draft.doc;
-    state.docName = draft.docName || null;
-    state.rules = draft.rules || {};
-    state.splits = draft.splits || {};
-    state.annotations = draft.annotations || {};
-    state.docFrontMatter = draft.docFrontMatter || "";
-    state.expanded = new Set([pathKey([])]);
-    state.history = { past: [], future: [] };
+    if (Array.isArray(draft.tabs) && draft.tabs.length > 0) {
+      // Reconstruct tabs with fresh session state
+      state.tabs = draft.tabs.map(t => ({
+        id: t.id || ("tab-" + Date.now() + "-" + Math.random().toString(36).slice(2,7)),
+        doc: t.doc,
+        docName: t.docName || null,
+        rules: t.rules || {},
+        splits: t.splits || {},
+        annotations: t.annotations || {},
+        docFrontMatter: t.docFrontMatter || "",
+        selection: null,
+        expanded: new Set([pathKey([])]),
+        search: "",
+        outputTab: "preview",
+        history: { past: [], future: [] },
+        dirty: t.dirty !== false, // restored tabs default to "dirty" since they may have unsaved edits
+        lastSaved: null,
+      }));
+      const target = state.tabs.find(t => t.id === draft.activeTabId) || state.tabs[0];
+      loadTabIntoState(target);
+    }
     banner.remove();
+    syncSearchInput();
     afterChange();
     flashStatus("Draft restored");
   });
@@ -3573,17 +5582,37 @@ function showRestoreBanner(draft) {
 function init() {
   const logoVer = document.getElementById("logo-ver");
   if (logoVer) logoVer.textContent = VERSION;
+
+  // Bootstrap a single default tab. Existing state.* values become its
+  // initial snapshot; further state lives in the tabs array.
+  const firstTab = makeTabSnapshot();
+  // Use the existing state.doc as the default tab's doc (preserves the
+  // "title + sections: []" placeholder shown on first launch).
+  firstTab.doc = state.doc;
+  state.tabs = [firstTab];
+  loadTabIntoState(firstTab);
+
   wireUp();
   setupPaneResize();
+
+  // Prompt before leaving with unsaved edits
+  window.addEventListener("beforeunload", (e) => {
+    if (state.dirty || state.tabs.some(t => t.dirty)) {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    }
+  });
   refreshPresetSelect();
 
-  // Check for draft
+  // Check for draft (new tabs-format or legacy single-doc)
   const draft = loadDraft();
-  if (draft && draft.doc) {
+  if (draft && (draft.tabs || draft.doc)) {
     showRestoreBanner(draft);
   }
 
   state.expanded.add(pathKey([]));
+  syncTabUI();
   afterChange();
 
   // If external libs missing, flag it once
