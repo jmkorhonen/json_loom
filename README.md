@@ -4,9 +4,11 @@ A single-file, browser-based tool for viewing, editing, and converting JSON
 into Markdown and Excel.
 
 **Run online:** <https://jmkorhonen.github.io/json_loom/loom>
-**Run locally:** download the latest `loom-vX.Y.ZZ.html`, double-click to open
-in any modern browser (Firefox, Chrome, Safari, Edge). No install, no server,
-no build step. Your data never leaves your machine.
+
+**Run locally:** Head to the [repository](https://github.com/jmkorhonen/json_loom), if you aren't there yet, and download the latest `loom.html` or `loom-vX.Y.ZZ.html`, double-click to open
+in any modern browser (Firefox, Chrome, Safari, Edge). 
+
+**No install, no server, no build step. Your data never leaves your machine.**
 
 > Loom is one researcher's side project to produce a tool for personal use. The data formats and pipelines
 > have been stable since 0.5, but you should still keep backups of
